@@ -2,6 +2,9 @@
   "installCommand": "npm install --prefix site",
   "buildCommand": "npm run build --prefix site",
   "outputDirectory": "site/dist",
+  "redirects": [
+    { "source": "/", "destination": "/en/", "permanent": true }
+  ],
   "headers": [
     {
       "source": "/(.*)",
