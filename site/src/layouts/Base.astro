@@ -1,0 +1,148 @@
+---
+import '../styles/global.css';
+import { SITE } from '../config/site';
+import { isRTL } from '../config/locales';
+import type { Locale } from '../config/locales';
+
+interface Props {
+  lang: Locale;
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImage?: string;
+  noIndex?: boolean;
+}
+
+const {
+  lang,
+  title,
+  description,
+  canonicalPath = '/',
+  ogImage,
+  noIndex = false,
+} = Astro.props;
+
+const dir = isRTL(lang) ? 'rtl' : 'ltr';
+const canonicalUrl = `${SITE.url}/${lang}${canonicalPath === '/' ? '' : canonicalPath}`;
+const ogImageUrl = ogImage ?? `${SITE.url}/og-default.jpg`;
+
+// Page title with brand suffix
+const fullTitle = title === SITE.name ? title : `${title} — ${SITE.name}`;
+---
+
+<!doctype html>
+<html lang={lang} dir={dir} class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <!-- Title & Description -->
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    {noIndex && <meta name="robots" content="noindex, nofollow" />}
+
+    <!-- Canonical -->
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- hreflang -->
+    <link rel="alternate" hreflang="en" href={`${SITE.url}/en${canonicalPath === '/' ? '' : canonicalPath}`} />
+    <link rel="alternate" hreflang="fr" href={`${SITE.url}/fr${canonicalPath === '/' ? '' : canonicalPath}`} />
+    <link rel="alternate" hreflang="ar" href={`${SITE.url}/ar${canonicalPath === '/' ? '' : canonicalPath}`} />
+    <link rel="alternate" hreflang="x-default" href={`${SITE.url}/en${canonicalPath === '/' ? '' : canonicalPath}`} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Fonts (non-render-blocking) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Arabic:wght@400;600;700;800;900&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Arabic:wght@400;600;700;800;900&display=swap"
+      />
+    </noscript>
+
+    <!-- Organization JSON-LD -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": SITE.name,
+      "url": SITE.url,
+      "logo": `${SITE.url}/assets/logo/logo.png`,
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "availableLanguage": ["English", "French", "Arabic"]
+      }
+    })} />
+
+    <!-- Extra head slots from child layouts -->
+    <slot name="head" />
+
+    <!-- Dark mode init — MUST be inline before any CSS to prevent FOUC -->
+    <script is:inline>
+      (() => {
+        let theme = null;
+        try { theme = localStorage.getItem('iptv_theme'); } catch {}
+        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+        const useDark = theme === 'dark' || (!theme && prefersDark);
+        document.documentElement.classList.toggle('dark', useDark);
+      })();
+    </script>
+  </head>
+  <body class="bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased">
+    <slot />
+
+    <!-- Scroll-reveal IntersectionObserver (tiny, ~200 bytes) -->
+    <script is:inline>
+      (() => {
+        const selectors = '[data-reveal],[data-reveal-left],[data-reveal-right]';
+        function initReveal() {
+          const els = document.querySelectorAll(selectors);
+          if (!els.length) return;
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                e.target.setAttribute('data-visible', '');
+                io.unobserve(e.target);
+              }
+            });
+          }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+          els.forEach((el) => io.observe(el));
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initReveal);
+        } else {
+          initReveal();
+        }
+        document.addEventListener('astro:after-swap', initReveal);
+      })();
+    </script>
+  </body>
+</html>

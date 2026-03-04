@@ -1,0 +1,41 @@
+---
+// Movie/Content Carousel — auto-scrolling marquee
+// Posters are placeholder colored cards; replace with real poster images
+
+const TITLES = [
+  'Adolescence', 'Alice in Borderland', 'Arcane', 'Dark Wolf',
+  'House of the Dragon', 'How to Train Your Dragon', 'Jurassic World',
+  'Kung Fu Panda 4', 'Love Island', 'Minecraft Movie', 'Mission: Impossible',
+  'Oppenheimer', 'Squid Game', 'The Bear', 'The Last of Us', 'Wednesday',
+  'Cobra Kai', 'Stranger Things', 'Succession', 'The Crown', 'Peaky Blinders', 'Breaking Bad'
+];
+
+// Generate a consistent hue from title string (for placeholder bg)
+function titleHue(title: string): number {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) hash = title.charCodeAt(i) + ((hash << 5) - hash);
+  return Math.abs(hash % 360);
+}
+---
+
+<section class="py-14 overflow-hidden bg-slate-50 dark:bg-slate-900/30" aria-label="Content catalog preview">
+  <!-- Duplicate items for seamless loop -->
+  <div class="marquee-track flex gap-4 w-max">
+    {[...TITLES, ...TITLES].map((title) => {
+      const hue = titleHue(title);
+      return (
+        <div
+          class="w-28 h-40 sm:w-32 sm:h-48 rounded-xl shrink-0 flex items-end p-2 overflow-hidden relative"
+          style={`background: linear-gradient(135deg, hsl(${hue},40%,25%) 0%, hsl(${hue},55%,15%) 100%);`}
+          aria-hidden="true"
+        >
+          <span class="text-white text-[9px] font-semibold leading-tight line-clamp-2 z-10 relative">
+            {title}
+          </span>
+          <!-- Gradient overlay at bottom -->
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        </div>
+      );
+    })}
+  </div>
+</section>

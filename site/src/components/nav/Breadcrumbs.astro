@@ -1,0 +1,60 @@
+---
+import { SITE } from '../../config/site';
+import type { Locale } from '../../config/locales';
+
+interface BreadcrumbItem {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  lang: Locale;
+  items: BreadcrumbItem[];
+}
+
+const { lang, items } = Astro.props;
+
+// Build full breadcrumb list with Home prepended
+const crumbs: BreadcrumbItem[] = [
+  { label: 'Home', href: `/${lang}/` },
+  ...items,
+];
+
+// JSON-LD BreadcrumbList schema
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": crumbs.map((crumb, i) => ({
+    "@type": "ListItem",
+    "position": i + 1,
+    ...(crumb.href ? { "item": { "@id": `${SITE.url}${crumb.href}`, "name": crumb.label } } : { "name": crumb.label }),
+  })),
+};
+---
+
+<nav aria-label="Breadcrumb" class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-2">
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  <ol class="flex flex-wrap items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+    {crumbs.map((crumb, i) => (
+      <li class="flex items-center gap-1.5">
+        {i > 0 && (
+          <svg class="w-3.5 h-3.5 text-slate-400/60 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        )}
+        {crumb.href && i < crumbs.length - 1 ? (
+          <a
+            href={crumb.href}
+            class="hover:text-[#3B82F6] transition-colors duration-150"
+          >
+            {crumb.label}
+          </a>
+        ) : (
+          <span class="text-slate-700 dark:text-slate-200 font-medium" aria-current="page">
+            {crumb.label}
+          </span>
+        )}
+      </li>
+    ))}
+  </ol>
+</nav>

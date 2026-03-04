@@ -1,0 +1,70 @@
+---
+import Page from '../../layouts/Page.astro';
+import { SITE } from '../../config/site';
+import { LOCALES } from '../../config/locales';
+import { useTranslations } from '../../i18n/index';
+import { getWhatsAppUrl } from '../../config/whatsapp';
+import Breadcrumbs from '../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+const waUrl = getWhatsAppUrl('default');
+---
+
+<Page
+  lang={lang}
+  title={t('footer').refund}
+  description={`7-day money-back guarantee. Learn about ${SITE.name}'s refund policy.`}
+  canonicalPath="/refund"
+  waMessageKey="default"
+>
+  <Breadcrumbs lang={lang} items={[{ label: t('footer').refund }]} />
+  <div class="max-w-3xl mx-auto px-4 py-16 prose prose-slate dark:prose-invert max-w-none
+              prose-headings:font-bold prose-h1:text-3xl">
+    <h1>Refund Policy</h1>
+    <p class="text-sm text-slate-400">Last updated: {new Date().getFullYear()}</p>
+
+    <div class="not-prose mb-8 p-4 rounded-xl bg-[#3B82F6]/10 border border-[#3B82F6]/20">
+      <p class="text-[#3B82F6] font-semibold">✅ 7-Day Money-Back Guarantee</p>
+      <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">
+        If you're not satisfied within the first 7 days of your subscription, we'll issue a full refund.
+        No questions asked.
+      </p>
+    </div>
+
+    <h2>Refund Eligibility</h2>
+    <p>You are eligible for a refund if:</p>
+    <ul>
+      <li>Your request is within 7 days of your initial purchase</li>
+      <li>The service has been activated for your account</li>
+      <li>You have not violated our Terms of Service</li>
+    </ul>
+
+    <h2>How to Request a Refund</h2>
+    <p>
+      To request a refund, contact us on{' '}
+      <a href={waUrl} target="_blank" rel="noopener noreferrer">WhatsApp</a>{' '}
+      or by email at{' '}
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a>{' '}
+      with your order details. We typically process refund requests within 24–48 hours.
+    </p>
+
+    <h2>Non-Refundable Cases</h2>
+    <ul>
+      <li>Requests made after the 7-day window</li>
+      <li>Accounts that have violated our Terms of Service</li>
+      <li>Renewal subscriptions (only initial purchase is covered)</li>
+    </ul>
+
+    <h2>Contact</h2>
+    <p>
+      For refund inquiries, reach us at{' '}
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.
+    </p>
+  </div>
+</Page>

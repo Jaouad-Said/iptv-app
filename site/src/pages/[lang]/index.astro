@@ -1,0 +1,45 @@
+---
+import Page from '../../layouts/Page.astro';
+import Hero from '../../components/sections/Hero.astro';
+import StatsBar from '../../components/sections/StatsBar.astro';
+import MovieCarousel from '../../components/sections/MovieCarousel.astro';
+import HowItWorks from '../../components/sections/HowItWorks.astro';
+import WhyChooseUs from '../../components/sections/WhyChooseUs.astro';
+import Testimonials from '../../components/sections/Testimonials.astro';
+import PricingSection from '../../components/pricing/PricingSection.astro';
+import FaqAccordion from '../../components/sections/FaqAccordion.astro';
+import ContactCTA from '../../components/sections/ContactCTA.astro';
+import { SITE } from '../../config/site';
+import { LOCALES } from '../../config/locales';
+import { useTranslations, interpolate } from '../../i18n/index';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+const hero = t('hero');
+
+const title = interpolate(hero.headline, { brand: SITE.name });
+const description = hero.subheadline;
+---
+
+<Page
+  lang={lang}
+  title={title}
+  description={description}
+  canonicalPath="/"
+  waMessageKey="default"
+>
+  <Hero lang={lang} />
+  <StatsBar />
+  <MovieCarousel />
+  <HowItWorks lang={lang} />
+  <WhyChooseUs lang={lang} />
+  <Testimonials lang={lang} />
+  <PricingSection lang={lang} />
+  <FaqAccordion lang={lang} />
+  <ContactCTA lang={lang} />
+</Page>

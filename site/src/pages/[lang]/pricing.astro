@@ -1,0 +1,57 @@
+---
+import Page from '../../layouts/Page.astro';
+import PricingSection from '../../components/pricing/PricingSection.astro';
+import FaqAccordion from '../../components/sections/FaqAccordion.astro';
+import ContactCTA from '../../components/sections/ContactCTA.astro';
+import { SITE } from '../../config/site';
+import { LOCALES } from '../../config/locales';
+import { useTranslations } from '../../i18n/index';
+import { SINGLE_PLANS, MULTI_PLANS } from '../../config/plans';
+import Breadcrumbs from '../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+const plansT = t('plans');
+
+// Build OfferCatalog JSON-LD
+const allPlans = [...SINGLE_PLANS, ...MULTI_PLANS];
+const offerCatalogSchema = {
+  "@context": "https://schema.org",
+  "@type": "OfferCatalog",
+  "name": `${SITE.name} IPTV Plans`,
+  "itemListElement": allPlans.map((plan, i) => ({
+    "@type": "Offer",
+    "position": i + 1,
+    "name": `${plan.type === 'multi' ? `${plan.devicesCount} Devices` : '1 Device'} — ${plan.durationLabel}`,
+    "price": plan.priceEUR.toString(),
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "Organization",
+      "name": SITE.name
+    }
+  }))
+};
+---
+
+<Page
+  lang={lang}
+  title={plansT.title}
+  description={plansT.subtitle_single}
+  canonicalPath="/pricing"
+  waMessageKey="pricing"
+>
+  <Breadcrumbs lang={lang} items={[{ label: t('nav').pricing }]} />
+  <script type="application/ld+json" set:html={JSON.stringify(offerCatalogSchema)} slot="head" />
+
+  <div class="pt-4">
+    <PricingSection lang={lang} />
+    <FaqAccordion lang={lang} />
+    <ContactCTA lang={lang} />
+  </div>
+</Page>

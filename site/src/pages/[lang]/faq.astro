@@ -1,0 +1,33 @@
+---
+import Page from '../../layouts/Page.astro';
+import FaqAccordion from '../../components/sections/FaqAccordion.astro';
+import ContactCTA from '../../components/sections/ContactCTA.astro';
+import { LOCALES } from '../../config/locales';
+import { useTranslations } from '../../i18n/index';
+import Breadcrumbs from '../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+const faq = t('faq');
+---
+
+<Page
+  lang={lang}
+  title={faq.title}
+  description="Find answers to common questions about our IPTV service, plans, and support."
+  canonicalPath="/faq"
+  waMessageKey="default"
+>
+  <Breadcrumbs lang={lang} items={[{ label: 'FAQ' }]} />
+  <!-- Page header -->
+  <div class="pt-16 pb-4 px-4 text-center bg-white dark:bg-slate-950">
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100">{faq.title}</h1>
+  </div>
+  <FaqAccordion lang={lang} showTitle={false} />
+  <ContactCTA lang={lang} />
+</Page>

@@ -1,0 +1,86 @@
+---
+import Page from '../../layouts/Page.astro';
+import { SITE } from '../../config/site';
+import { LOCALES } from '../../config/locales';
+import { useTranslations } from '../../i18n/index';
+import Breadcrumbs from '../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+---
+
+<Page
+  lang={lang}
+  title={t('footer').terms}
+  description={`Terms of service for ${SITE.name} IPTV subscription service.`}
+  canonicalPath="/terms"
+  waMessageKey="default"
+>
+  <Breadcrumbs lang={lang} items={[{ label: t('footer').terms }]} />
+  <div class="max-w-3xl mx-auto px-4 py-16 prose prose-slate dark:prose-invert max-w-none
+              prose-headings:font-bold prose-h1:text-3xl">
+    <h1>Terms of Service</h1>
+    <p class="text-sm text-slate-400">Last updated: {new Date().getFullYear()}</p>
+
+    <h2>1. Acceptance of Terms</h2>
+    <p>
+      By using {SITE.name}'s services, you agree to these terms. If you do not agree, please
+      do not use our service.
+    </p>
+
+    <h2>2. Service Description</h2>
+    <p>
+      {SITE.name} provides IPTV subscription services including live channels, video on demand, and
+      related features. The service is provided for personal, non-commercial use only.
+    </p>
+
+    <h2>3. Account Responsibility</h2>
+    <p>
+      You are responsible for maintaining the confidentiality of your account credentials. You agree
+      not to share your subscription with unauthorized users.
+    </p>
+
+    <h2>4. Acceptable Use</h2>
+    <p>You agree not to:</p>
+    <ul>
+      <li>Resell or redistribute the service without authorization</li>
+      <li>Use the service for any illegal purpose</li>
+      <li>Attempt to circumvent technical limitations</li>
+    </ul>
+
+    <h2>5. Payment & Refunds</h2>
+    <p>
+      All payments are processed via WhatsApp order confirmation. Please refer to our{' '}
+      <a href={`/${lang}/refund`}>Refund Policy</a> for details on refunds.
+    </p>
+
+    <h2>6. Service Availability</h2>
+    <p>
+      We strive for maximum uptime but do not guarantee uninterrupted service. Scheduled maintenance
+      will be communicated in advance where possible.
+    </p>
+
+    <h2>7. Limitation of Liability</h2>
+    <p>
+      {SITE.name} is not liable for indirect, incidental, or consequential damages arising from
+      use of the service.
+    </p>
+
+    <h2>8. Changes to Terms</h2>
+    <p>
+      We may update these terms at any time. Continued use of the service after changes constitutes
+      acceptance of the new terms.
+    </p>
+
+    <h2>9. Contact</h2>
+    <p>
+      Questions about these terms? Contact us at{' '}
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.
+    </p>
+  </div>
+</Page>

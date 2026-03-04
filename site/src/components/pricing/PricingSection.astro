@@ -1,0 +1,164 @@
+---
+import { useTranslations } from '../../i18n/index';
+import { SINGLE_PLANS, MULTI_PLANS } from '../../config/plans';
+import PlanCard from './PlanCard.astro';
+import type { Locale } from '../../config/locales';
+
+interface Props {
+  lang: Locale;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const plansT = t('plans');
+---
+
+<section
+  id="pricing"
+  class="py-24 px-4 mesh-gradient bg-slate-50 dark:bg-slate-900/30"
+  aria-labelledby="pricing-title"
+>
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-14" data-reveal>
+      <h2
+        id="pricing-title"
+        class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-800 dark:text-slate-100 mb-4"
+      >
+        <span class="text-gradient">{plansT.title}</span>
+      </h2>
+      <p
+        id="pricing-subtitle"
+        class="text-slate-500 dark:text-slate-400 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed"
+      >
+        {plansT.subtitle_single}
+      </p>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="flex justify-center mb-12" data-reveal>
+      <div class="relative inline-flex p-1 rounded-full bg-slate-200/80 dark:bg-slate-800 gap-0" role="tablist" aria-label={plansT.title}>
+        {/* Sliding pill indicator */}
+        <div
+          id="tab-pill"
+          class="absolute top-1 bottom-1 rounded-full bg-white dark:bg-slate-700 shadow-md transition-all duration-300 ease-out"
+          aria-hidden="true"
+          style="left: 4px; width: calc(50% - 4px);"
+        ></div>
+
+        <button
+          id="tab-single"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-single"
+          tabindex="0"
+          class="relative z-10 px-5 sm:px-6 py-2.5 rounded-full text-sm font-semibold transition-colors duration-200
+                 text-slate-800 dark:text-slate-100"
+          data-target="panel-single"
+          data-subtitle={plansT.subtitle_single}
+        >
+          {plansT.tab_single}
+        </button>
+        <button
+          id="tab-multi"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-multi"
+          tabindex="-1"
+          class="relative z-10 px-5 sm:px-6 py-2.5 rounded-full text-sm font-semibold transition-colors duration-200
+                 text-slate-500 dark:text-slate-400"
+          data-target="panel-multi"
+          data-subtitle={plansT.subtitle_multi}
+        >
+          {plansT.tab_multi}
+        </button>
+      </div>
+    </div>
+
+    <!-- Single plans panel -->
+    <div id="panel-single" role="tabpanel" aria-labelledby="tab-single" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {SINGLE_PLANS.map((plan) => (
+        <PlanCard plan={plan} lang={lang} />
+      ))}
+    </div>
+
+    <!-- Multi plans panel (hidden by default) -->
+    <div id="panel-multi" role="tabpanel" aria-labelledby="tab-multi" class="hidden max-w-5xl mx-auto">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {MULTI_PLANS.map((plan) => (
+          <PlanCard plan={plan} lang={lang} />
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function initPricingTabs() {
+    const tabSingle = document.getElementById('tab-single') as HTMLButtonElement | null;
+    const tabMulti = document.getElementById('tab-multi') as HTMLButtonElement | null;
+    const pill = document.getElementById('tab-pill') as HTMLElement | null;
+    const subtitle = document.getElementById('pricing-subtitle') as HTMLElement | null;
+    const panelSingle = document.getElementById('panel-single') as HTMLElement | null;
+    const panelMulti = document.getElementById('panel-multi') as HTMLElement | null;
+
+    if (!tabSingle || !tabMulti || !pill || !subtitle || !panelSingle || !panelMulti) return;
+
+    const tabs = [tabSingle, tabMulti];
+
+    function activate(activeTab: HTMLButtonElement) {
+      const isSingle = activeTab === tabSingle;
+
+      // Move the pill indicator
+      if (isSingle) {
+        pill!.style.left = '4px';
+        pill!.style.width = `calc(50% - 4px)`;
+      } else {
+        pill!.style.left = '50%';
+        pill!.style.width = `calc(50% - 4px)`;
+      }
+
+      // Update tab ARIA and text styles
+      tabs.forEach((t) => {
+        const isActive = t === activeTab;
+        t.classList.toggle('text-slate-800', isActive);
+        t.classList.toggle('dark:text-slate-100', isActive);
+        t.classList.toggle('text-slate-500', !isActive);
+        t.classList.toggle('dark:text-slate-400', !isActive);
+        t.setAttribute('aria-selected', String(isActive));
+        t.setAttribute('tabindex', isActive ? '0' : '-1');
+      });
+
+      // Swap subtitle text
+      subtitle!.textContent = activeTab.dataset.subtitle ?? '';
+
+      // Toggle panel visibility
+      panelSingle!.classList.toggle('hidden', !isSingle);
+      panelMulti!.classList.toggle('hidden', isSingle);
+    }
+
+    tabSingle.addEventListener('click', () => activate(tabSingle));
+    tabMulti.addEventListener('click', () => activate(tabMulti));
+
+    // Arrow key navigation between tabs
+    tabs.forEach((tab) => {
+      tab.addEventListener('keydown', (e) => {
+        const key = (e as KeyboardEvent).key;
+        let target: HTMLButtonElement | null = null;
+        if (key === 'ArrowRight' || key === 'ArrowDown') target = tab === tabSingle ? tabMulti : tabSingle;
+        if (key === 'ArrowLeft' || key === 'ArrowUp') target = tab === tabMulti ? tabSingle : tabMulti;
+        if (target) {
+          e.preventDefault();
+          activate(target);
+          target.focus();
+        }
+      });
+    });
+  }
+
+  // Init on first load and subsequent navigations (Astro view transitions)
+  initPricingTabs();
+  document.addEventListener('astro:after-swap', initPricingTabs);
+</script>

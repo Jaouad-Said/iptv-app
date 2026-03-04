@@ -1,0 +1,38 @@
+---
+/* StatsBar — animated counter strip with glassmorphism cards */
+/* No props needed; hardcoded stats with no i18n for now */
+
+const stats = [
+  { value: '10,000+', label: 'Channels' },
+  { value: '50+', label: 'Countries' },
+  { value: '4K', label: 'Quality' },
+  { value: '24/7', label: 'Support' },
+];
+---
+
+<section class="relative -mt-6 z-40 px-4 sm:px-6" aria-label="Key statistics">
+  <div class="max-w-5xl mx-auto">
+    <!-- Green accent line at top -->
+    <div class="h-[2px] w-full bg-gradient-to-r from-transparent via-[#3B82F6] to-transparent mb-0 rounded-full" aria-hidden="true"></div>
+
+    <!-- Glass card container -->
+    <div class="glass-card rounded-2xl px-6 py-8 sm:py-10">
+      <dl class="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
+        {stats.map((stat, i) => (
+          <div
+            class="flex flex-col items-center text-center"
+            data-reveal
+            style={`transition-delay: ${i * 100}ms`}
+          >
+            <dt class="text-gradient text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-none mb-2 tracking-tight">
+              {stat.value}
+            </dt>
+            <dd class="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">
+              {stat.label}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </div>
+</section>

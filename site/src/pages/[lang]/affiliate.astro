@@ -1,0 +1,100 @@
+---
+import Page from '../../layouts/Page.astro';
+import ContactCTA from '../../components/sections/ContactCTA.astro';
+import { SITE } from '../../config/site';
+import { LOCALES } from '../../config/locales';
+import { useTranslations, interpolate } from '../../i18n/index';
+import { getWhatsAppUrl } from '../../config/whatsapp';
+import Breadcrumbs from '../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+const affiliateT = t('affiliate');
+const waUrl = getWhatsAppUrl('affiliate');
+const subtitle = interpolate(affiliateT.subtitle, { brand: SITE.name });
+---
+
+<Page
+  lang={lang}
+  title={affiliateT.title}
+  description={subtitle}
+  canonicalPath="/affiliate"
+  waMessageKey="affiliate"
+>
+  <Breadcrumbs lang={lang} items={[{ label: t('affiliate').title }]} />
+  <!-- Hero -->
+  <section class="py-20 px-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div class="max-w-3xl mx-auto text-center">
+      <h1 class="text-4xl sm:text-5xl font-extrabold text-white mb-6">{affiliateT.title}</h1>
+      <p class="text-lg text-slate-300 mb-10 max-w-2xl mx-auto">{subtitle}</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#25D366] text-white font-semibold
+                 hover:brightness-110 transition-all duration-200 shadow-lg"
+        >
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+          {affiliateT.cta}
+        </a>
+        <a
+          href={`/${lang}/pricing`}
+          class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full border border-white/20 text-white font-semibold
+                 hover:bg-white/10 transition-all duration-200"
+        >
+          View Plans
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="py-16 px-4 bg-white dark:bg-slate-950">
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 text-center mb-10">
+        {affiliateT.how_title}
+      </h2>
+      <div class="relative">
+        <div class="hidden lg:block absolute top-12 start-1/6 end-1/6 h-px bg-gradient-to-r from-transparent via-[#3B82F6]/40 to-transparent" aria-hidden="true"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {affiliateT.steps.map((step, i) => (
+            <div class="flex flex-col items-center text-center p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+              <div class="flex items-center justify-center w-14 h-14 rounded-full bg-[#3B82F6]/10 text-[#3B82F6] text-xl font-extrabold mb-4">
+                0{i + 1}
+              </div>
+              <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-2">{step.title}</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{step.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Terms -->
+  <section class="py-12 px-4 bg-slate-50 dark:bg-slate-900/30">
+    <div class="max-w-2xl mx-auto">
+      <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">{affiliateT.terms_title}</h2>
+      <ul class="space-y-3">
+        {affiliateT.terms.map(term => (
+          <li class="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300">
+            <svg class="w-4 h-4 text-[#3B82F6] mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            {term}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <ContactCTA lang={lang} />
+</Page>

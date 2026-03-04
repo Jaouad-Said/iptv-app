@@ -1,0 +1,69 @@
+---
+import Page from '../../layouts/Page.astro';
+import { SITE } from '../../config/site';
+import { LOCALES } from '../../config/locales';
+import { useTranslations } from '../../i18n/index';
+import Breadcrumbs from '../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../config/locales';
+
+export function getStaticPaths() {
+  return LOCALES.map(lang => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+const t = useTranslations(lang);
+---
+
+<Page
+  lang={lang}
+  title={t('footer').privacy}
+  description={`Privacy policy for ${SITE.name} IPTV service.`}
+  canonicalPath="/privacy"
+  noIndex={false}
+  waMessageKey="default"
+>
+  <Breadcrumbs lang={lang} items={[{ label: t('footer').privacy }]} />
+  <div class="max-w-3xl mx-auto px-4 py-16 prose prose-slate dark:prose-invert max-w-none
+              prose-headings:font-bold prose-h1:text-3xl">
+    <h1>Privacy Policy</h1>
+    <p class="text-sm text-slate-400">Last updated: {new Date().getFullYear()}</p>
+
+    <h2>1. Information We Collect</h2>
+    <p>
+      We collect minimal information necessary to provide our service, including contact information you
+      share with us via WhatsApp or email (name, email address, WhatsApp number).
+    </p>
+
+    <h2>2. How We Use Your Information</h2>
+    <p>We use your information to:</p>
+    <ul>
+      <li>Activate and manage your subscription</li>
+      <li>Provide customer support</li>
+      <li>Send service-related communications</li>
+    </ul>
+
+    <h2>3. Data Sharing</h2>
+    <p>
+      We do not sell, rent, or share your personal information with third parties except where
+      required by law.
+    </p>
+
+    <h2>4. Data Retention</h2>
+    <p>
+      We retain your information for the duration of your subscription and for a reasonable period
+      thereafter for legal and business purposes.
+    </p>
+
+    <h2>5. Your Rights</h2>
+    <p>
+      You have the right to access, correct, or delete your personal data. Contact us at{' '}
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a> to exercise these rights.
+    </p>
+
+    <h2>6. Contact</h2>
+    <p>
+      For privacy-related questions, contact us at{' '}
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.
+    </p>
+  </div>
+</Page>

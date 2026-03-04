@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand colors */
+  --color-planet: #3B82F6;
+  --color-planet-2: #60A5FA;
+  --color-planet-dark: #2563EB;
+  --color-accent: #F59E0B;
+  --color-accent-2: #FBBF24;
+
+  /* Font stacks */
+  --font-sans: 'Inter', 'Noto Sans Arabic', system-ui, sans-serif;
+
+  /* Custom shadows */
+  --shadow-card: 0 4px 24px 0 rgba(59, 130, 246, 0.08);
+  --shadow-card-hover: 0 12px 40px -8px rgba(59, 130, 246, 0.2);
+  --shadow-button: 0 2px 12px 0 rgba(59, 130, 246, 0.3);
+  --shadow-glow: 0 0 60px 20px rgba(59, 130, 246, 0.15);
+}
+
+/* Dark mode via class strategy */
+@variant dark (&:where(.dark, .dark *));
+
+/* ─── Base ────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-planet) transparent;
+}
+:focus-visible {
+  outline: 2px solid var(--color-planet);
+  outline-offset: 2px;
+}
+html {
+  scroll-behavior: smooth;
+}
+html:not(.dark):not([data-theme]) {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+/* ─── Gradient text utility ───────────────────────────── */
+.text-gradient {
+  background: linear-gradient(135deg, #3B82F6, #60A5FA, #F59E0B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-light {
+  background: linear-gradient(135deg, #3B82F6, #60A5FA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Glass morphism card ─────────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(100, 116, 139, 0.2);
+}
+
+/* ─── Marquee animation ───────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes marquee-rtl {
+  from { transform: translateX(0); }
+  to   { transform: translateX(50%); }
+}
+.marquee-track {
+  animation: marquee 45s linear infinite;
+}
+[dir="rtl"] .marquee-track {
+  animation: marquee-rtl 45s linear infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Ticker animation ────────────────────────────────── */
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes ticker-rtl {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(50%); }
+}
+.ticker-track {
+  animation: ticker 30s linear infinite;
+  will-change: transform;
+}
+[dir="rtl"] .ticker-track {
+  animation: ticker-rtl 30s linear infinite;
+}
+
+/* ─── Floating animation ──────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-8px) rotate(2deg); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+/* ─── Glow pulse ──────────────────────────────────────── */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.2); }
+  50%      { box-shadow: 0 0 40px 8px rgba(59, 130, 246, 0.35); }
+}
+.animate-glow {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Counter animation (for stats) ───────────────────── */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Scroll reveal ───────────────────────────────────── */
+[data-reveal] {
+  opacity: 0;
+  translate: 0 28px;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), translate 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-reveal][data-visible] {
+  opacity: 1;
+  translate: 0 0;
+}
+[data-reveal-left] {
+  opacity: 0;
+  translate: -40px 0;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), translate 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-reveal-left][data-visible] {
+  opacity: 1;
+  translate: 0 0;
+}
+[data-reveal-right] {
+  opacity: 0;
+  translate: 40px 0;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), translate 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-reveal-right][data-visible] {
+  opacity: 1;
+  translate: 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal], [data-reveal-left], [data-reveal-right] {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+}
+
+/* ─── FAQ accordion ───────────────────────────────────── */
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* ─── Plan card ───────────────────────────────────────── */
+.plan-card {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.plan-card:hover {
+  border-color: var(--color-planet);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-4px);
+}
+.plan-card-featured {
+  border-color: var(--color-planet);
+  box-shadow: 0 0 0 1px var(--color-planet), var(--shadow-card);
+}
+
+/* ─── Section divider (wave shape) ────────────────────── */
+.section-wave {
+  position: relative;
+}
+.section-wave::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: url('/assets/images/wave-divider.svg') no-repeat bottom center;
+  background-size: cover;
+  pointer-events: none;
+}
+
+/* ─── Mesh gradient background ────────────────────────── */
+.mesh-gradient {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(96, 165, 250, 0.06) 0%, transparent 50%);
+}
+.dark .mesh-gradient {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(96, 165, 250, 0.04) 0%, transparent 50%);
+}
+
+/* ─── Feature bento card ──────────────────────────────── */
+.bento-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.bento-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ─── Timeline connector ──────────────────────────────── */
+.timeline-line {
+  background: linear-gradient(180deg, transparent, var(--color-planet), transparent);
+}
+
+/* ─── Badge shine effect ──────────────────────────────── */
+@keyframes shine {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.badge-shine {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shine 3s ease-in-out infinite;
+}
+
+/* ─── Prose (blog) styling ────────────────────────────── */
+.prose-custom h2 { margin-top: 2rem; margin-bottom: 0.75rem; }
+.prose-custom h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.prose-custom p  { margin-bottom: 1rem; line-height: 1.8; }
+.prose-custom ul { padding-inline-start: 1.5rem; margin-bottom: 1rem; }
+.prose-custom li { margin-bottom: 0.25rem; }
+.prose-custom a  { color: var(--color-planet); text-decoration: none; }
+.prose-custom a:hover { text-decoration: underline; }

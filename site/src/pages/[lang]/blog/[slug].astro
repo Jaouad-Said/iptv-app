@@ -1,0 +1,113 @@
+---
+import Page from '../../../layouts/Page.astro';
+import { getCollection } from 'astro:content';
+import { SITE } from '../../../config/site';
+import Breadcrumbs from '../../../components/nav/Breadcrumbs.astro';
+import type { Locale } from '../../../config/locales';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', p => !p.data.draft);
+  return posts.map(post => ({
+    params: {
+      lang: post.data.lang as Locale,
+      slug: post.slug.split('/').pop(),
+    },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { lang } = Astro.params as { lang: Locale };
+const { Content } = await post.render();
+
+const allPosts = await getCollection('blog', p => !p.data.draft && p.data.lang === lang && p.slug !== post.slug);
+const relatedPosts = allPosts.slice(0, 3);
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": post.data.title,
+  "description": post.data.description,
+  "datePublished": post.data.pubDate.toISOString(),
+  "dateModified": (post.data.updatedDate ?? post.data.pubDate).toISOString(),
+  "inLanguage": lang,
+  "keywords": post.data.tags.join(', '),
+  ...(post.data.image && {
+    "image": {
+      "@type": "ImageObject",
+      "url": `${SITE.url}${post.data.image.src}`,
+      "caption": post.data.image.alt,
+    }
+  }),
+  "author": {
+    "@type": "Person",
+    "name": post.data.author
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": SITE.name,
+    "url": SITE.url,
+    "logo": {
+      "@type": "ImageObject",
+      "url": `${SITE.url}/assets/logo/logo.png`
+    }
+  }
+};
+---
+
+<Page
+  lang={lang}
+  title={post.data.title}
+  description={post.data.description}
+  canonicalPath={`/blog/${post.slug.split('/').pop()}`}
+  waMessageKey="default"
+>
+  <Breadcrumbs lang={lang} items={[{ label: 'Blog', href: `/${lang}/blog` }, { label: post.data.title }]} />
+  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} slot="head" />
+
+  <article class="max-w-3xl mx-auto px-4 py-16">
+    <!-- Meta -->
+    <div class="mb-6">
+      <div class="flex gap-2 flex-wrap mb-4">
+        {post.data.tags.map(tag => (
+          <span class="px-2 py-0.5 rounded-full bg-[#3B82F6]/10 text-[#3B82F6] text-xs font-medium">{tag}</span>
+        ))}
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100 mb-3">
+        {post.data.title}
+      </h1>
+      <p class="text-slate-500 dark:text-slate-400 text-base mb-4">{post.data.description}</p>
+      <time class="text-xs text-slate-400" datetime={post.data.pubDate.toISOString()}>
+        {post.data.pubDate.toLocaleDateString(lang, { year: 'numeric', month: 'long', day: 'numeric' })}
+        {post.data.author && <> · {post.data.author}</>}
+      </time>
+    </div>
+
+    <!-- Divider -->
+    <div class="border-t border-slate-200 dark:border-slate-800 mb-8"></div>
+
+    <!-- Article content -->
+    <div class="prose prose-slate dark:prose-invert max-w-none
+                prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-slate-100
+                prose-a:text-[#3B82F6] prose-a:no-underline hover:prose-a:underline
+                prose-strong:text-slate-800 dark:prose-strong:text-slate-100">
+      <Content />
+    </div>
+
+    {relatedPosts.length > 0 && (
+      <div class="mt-16 pt-10 border-t border-slate-200 dark:border-slate-800">
+        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">Related Articles</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {relatedPosts.map(rp => (
+            <a href={`/${lang}/blog/${rp.slug.split('/').pop()}`} class="group rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:border-[#3B82F6]/40 transition-colors">
+              <h3 class="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-[#3B82F6] transition-colors text-sm mb-2">{rp.data.title}</h3>
+              <time class="text-xs text-slate-400" datetime={rp.data.pubDate.toISOString()}>
+                {rp.data.pubDate.toLocaleDateString(lang, { year: 'numeric', month: 'short', day: 'numeric' })}
+              </time>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+  </article>
+</Page>
