@@ -1,13 +1,18 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { extname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 export { renderers } from '../../renderers.mjs';
 
 const prerender = false;
-const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "carousel");
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"];
 const MAX_SIZE = 5 * 1024 * 1024;
 const POST = async ({ request }) => {
+  if (process.env.VERCEL) {
+    return new Response(
+      JSON.stringify({ error: "Upload is not available in production. Run the site locally to upload images." }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -22,6 +27,7 @@ const POST = async ({ request }) => {
     }
     const ext = extname(file.name) || ".jpg";
     const filename = `${randomUUID()}${ext}`;
+    const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "carousel");
     await mkdir(UPLOAD_DIR, { recursive: true });
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(join(UPLOAD_DIR, filename), buffer);

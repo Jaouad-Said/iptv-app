@@ -1,6 +1,6 @@
 import { c as createComponent, r as renderComponent, a as renderTemplate, b as renderScript, u as unescapeHTML, m as maybeRenderHead } from '../chunks/astro/server_CZEfcTG3.mjs';
 import 'piccolore';
-import { $ as $$Base, S as SITE } from '../chunks/Base_4C-51HZA.mjs';
+import { $ as $$Base, S as SITE } from '../chunks/Base_CqGLP5nb.mjs';
 import { P as PLAN_FEATURES_EXTRA, a as PLAN_FEATURES_BASE, M as MULTI_PLANS, S as SINGLE_PLANS } from '../chunks/plans_hev7Aa7M.mjs';
 import { a as ar, f as fr, e as en, W as WHATSAPP_CONFIG } from '../chunks/ar_CuGwO3Jc.mjs';
 import { W as WHY_RESELL_FEATURES, R as RESELLER_TIERS } from '../chunks/reseller_BaoTL-ww.mjs';
@@ -37,7 +37,8 @@ const $$Index = createComponent(async ($$result, $$props, $$slots) => {
     carouselItems: CAROUSEL_ITEMS
   };
   const passwordHash = createHash("sha256").update("limitless2024").digest("hex");
-  return renderTemplate`${renderComponent($$result, "Base", $$Base, { "lang": "en", "title": "Admin Panel", "description": "Site administration panel", "noIndex": true }, { "default": async ($$result2) => renderTemplate(_a || (_a = __template([" ", '<div id="admin-root"></div> <script id="admin-data" type="application/json">', '<\/script> <script id="admin-password-hash" type="application/json">', "<\/script> ", " "])), maybeRenderHead(), unescapeHTML(JSON.stringify(adminData)), unescapeHTML(JSON.stringify(passwordHash)), renderScript($$result2, "/home/said-j/Desktop/Projetcs/DEV PROJECTS/iptv/site/src/pages/admin/index.astro?astro&type=script&index=0&lang.ts")) })}`;
+  const isProduction = !!process.env.VERCEL;
+  return renderTemplate`${renderComponent($$result, "Base", $$Base, { "lang": "en", "title": "Admin Panel", "description": "Site administration panel", "noIndex": true }, { "default": async ($$result2) => renderTemplate(_a || (_a = __template([" ", '<div id="admin-root"></div> <script id="admin-data" type="application/json">', '<\/script> <script id="admin-password-hash" type="application/json">', '<\/script> <script id="admin-env" type="application/json">', "<\/script> ", " "])), maybeRenderHead(), unescapeHTML(JSON.stringify(adminData)), unescapeHTML(JSON.stringify(passwordHash)), unescapeHTML(JSON.stringify({ isProduction })), renderScript($$result2, "/home/said-j/Desktop/Projetcs/DEV PROJECTS/iptv/site/src/pages/admin/index.astro?astro&type=script&index=0&lang.ts")) })}`;
 }, "/home/said-j/Desktop/Projetcs/DEV PROJECTS/iptv/site/src/pages/admin/index.astro", void 0);
 
 const $$file = "/home/said-j/Desktop/Projetcs/DEV PROJECTS/iptv/site/src/pages/admin/index.astro";

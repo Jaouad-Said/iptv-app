@@ -5,12 +5,18 @@ import { randomUUID } from 'node:crypto';
 
 export const prerender = false;
 
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'carousel');
-
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export const POST: APIRoute = async ({ request }) => {
+  // Vercel serverless functions have a read-only filesystem
+  if (process.env.VERCEL) {
+    return new Response(
+      JSON.stringify({ error: 'Upload is not available in production. Run the site locally to upload images.' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -31,6 +37,7 @@ export const POST: APIRoute = async ({ request }) => {
     const ext = extname(file.name) || '.jpg';
     const filename = `${randomUUID()}${ext}`;
 
+    const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'carousel');
     await mkdir(UPLOAD_DIR, { recursive: true });
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(join(UPLOAD_DIR, filename), buffer);
