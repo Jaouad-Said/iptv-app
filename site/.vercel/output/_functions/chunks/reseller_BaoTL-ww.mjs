@@ -1,0 +1,11 @@
+const tiers = [{"tier":"diamond","color":"#B9F2FF","darkBg":"from-blue-950 to-slate-950","packages":[{"name":"Starter","credits":5,"price":200},{"name":"Professional","credits":10,"price":350,"bestSeller":true},{"name":"Business","credits":20,"price":599}]},{"tier":"gold","color":"#FFD700","darkBg":"from-yellow-950 to-slate-950","packages":[{"name":"Starter","credits":5,"price":150},{"name":"Professional","credits":10,"price":250,"bestSeller":true},{"name":"Business","credits":20,"price":399}]}];
+const whyResellFeatures = [{"icon":"💰","title":"Affordable entry from €250","desc":"Simple credit system, no monthly fees."},{"icon":"🖥️","title":"Powerful servers & top quality","desc":"Modern, reliable infrastructure."},{"icon":"📅","title":"Trusted provider","desc":"Active with a proven track record."},{"icon":"🎧","title":"24/7 expert support","desc":"Round-the-clock dedicated reseller assistance."}];
+const resellerData = {
+  tiers,
+  whyResellFeatures,
+};
+
+const RESELLER_TIERS = resellerData.tiers;
+const WHY_RESELL_FEATURES = resellerData.whyResellFeatures;
+
+export { RESELLER_TIERS as R, WHY_RESELL_FEATURES as W };

@@ -1,7 +1,6 @@
 {
   "installCommand": "npm install --prefix site",
-  "buildCommand": "npm run build --prefix site",
-  "outputDirectory": "site/dist",
+  "buildCommand": "npm run build --prefix site && cp -r site/.vercel/output .vercel/output",
   "redirects": [
     { "source": "/", "destination": "/en/", "permanent": true }
   ],

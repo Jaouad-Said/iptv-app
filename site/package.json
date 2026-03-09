@@ -12,9 +12,9 @@
   "dependencies": {
     "@astrojs/check": "^0.9.6",
     "@astrojs/mdx": "^4.3.13",
-    "@astrojs/node": "^9.5.4",
     "@astrojs/partytown": "^2.1.4",
     "@astrojs/sitemap": "^3.7.0",
+    "@astrojs/vercel": "^9.0.4",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^5.17.1",
     "jszip": "^3.10.1",
