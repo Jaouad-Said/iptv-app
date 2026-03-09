@@ -50,7 +50,7 @@ const headlineParts = hero.headline.split('{brand}');
   </div>
 
   <!-- Main content grid: split layout -->
-  <div class="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-0">
+  <div class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-24 lg:py-0">
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8 items-center">
 
       <!-- LEFT — Text content (60%) -->
@@ -63,12 +63,12 @@ const headlineParts = hero.headline.split('{brand}');
         </div>
 
         <!-- Headline -->
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white leading-[1.1] tracking-tight mb-6">
+        <h1 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white leading-[1.1] tracking-tight mb-6">
           {headlineParts[0]}<span class="text-gradient">{SITE.name}</span>{headlineParts[1] ?? ''}
         </h1>
 
         <!-- Subheadline -->
-        <p class="text-lg sm:text-xl text-slate-300 max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10">
+        <p class="text-lg sm:text-xl text-slate-300 max-w-sm sm:max-w-md md:max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10">
           {hero.subheadline}
         </p>
 
@@ -105,7 +105,7 @@ const headlineParts = hero.headline.split('{brand}');
         </div>
 
         <!-- Trust badges row -->
-        <div class="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 mt-12 text-slate-400 text-sm">
+        <div class="flex flex-wrap items-center justify-center lg:justify-start gap-x-3 sm:gap-x-6 gap-y-3 mt-12 text-slate-400 text-sm">
           <span class="flex items-center gap-2">
             <svg class="w-4 h-4 text-[#3B82F6]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12"/>
@@ -154,23 +154,23 @@ const headlineParts = hero.headline.split('{brand}');
     </div>
   </div>
 
-  <!-- Ticker strip at bottom -->
-  <div class="absolute bottom-0 start-0 end-0 overflow-hidden py-3.5
-              border-t border-white/5 bg-black/30 backdrop-blur-sm z-20">
-    <div class="ticker-track flex whitespace-nowrap gap-10 text-slate-300 text-xs font-medium">
+  <!-- Wave divider at very bottom -->
+  <div class="absolute -bottom-1 left-0 right-0 z-20 pointer-events-none" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" class="w-full h-16 sm:h-20">
+      <path d="M0,64 C360,0 720,80 1080,32 C1260,8 1380,48 1440,40 L1440,80 L0,80 Z" fill="currentColor" class="text-slate-950"/>
+    </svg>
+  </div>
+
+  <!-- Ticker strip above wave -->
+  <div class="absolute bottom-14 sm:bottom-16 start-0 end-0 overflow-hidden py-3
+              border-t border-b border-white/10 bg-black/60 backdrop-blur-md z-30">
+    <div class="ticker-track flex whitespace-nowrap gap-6 sm:gap-10 text-white text-sm sm:text-base font-medium">
       {[...hero.ticker, ...hero.ticker].map(item => (
         <span class="flex items-center gap-2.5 shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" aria-hidden="true"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-pulse" aria-hidden="true"></span>
           {item}
         </span>
       ))}
     </div>
-  </div>
-
-  <!-- Wave divider at very bottom -->
-  <div class="absolute -bottom-1 left-0 right-0 z-30 pointer-events-none" aria-hidden="true">
-    <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" class="w-full h-16 sm:h-20">
-      <path d="M0,64 C360,0 720,80 1080,32 C1260,8 1380,48 1440,40 L1440,80 L0,80 Z" fill="currentColor" class="text-slate-950"/>
-    </svg>
   </div>
 </section>

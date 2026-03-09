@@ -84,6 +84,23 @@ html.dark {
 .marquee-track:hover {
   animation-play-state: paused;
 }
+@keyframes marquee-reverse {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+@keyframes marquee-reverse-rtl {
+  from { transform: translateX(50%); }
+  to   { transform: translateX(0); }
+}
+.marquee-track-reverse {
+  animation: marquee-reverse 50s linear infinite;
+}
+[dir="rtl"] .marquee-track-reverse {
+  animation: marquee-reverse-rtl 50s linear infinite;
+}
+.marquee-track-reverse:hover {
+  animation-play-state: paused;
+}
 
 /* ─── Ticker animation ────────────────────────────────── */
 @keyframes ticker {
@@ -97,6 +114,8 @@ html.dark {
 .ticker-track {
   animation: ticker 30s linear infinite;
   will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 [dir="rtl"] .ticker-track {
   animation: ticker-rtl 30s linear infinite;

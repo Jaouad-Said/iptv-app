@@ -4,11 +4,13 @@ import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
 import mdx from '@astrojs/mdx';
+import node from '@astrojs/node';
 
 // https://astro.build/config
 export default defineConfig({
   site: 'https://yourdomain.com',
   output: 'static',
+  adapter: node({ mode: 'standalone' }),
   integrations: [
     sitemap({
       i18n: {

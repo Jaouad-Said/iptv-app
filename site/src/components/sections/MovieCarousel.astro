@@ -1,14 +1,7 @@
 ---
-// Movie/Content Carousel — auto-scrolling marquee
-// Posters are placeholder colored cards; replace with real poster images
-
-const TITLES = [
-  'Adolescence', 'Alice in Borderland', 'Arcane', 'Dark Wolf',
-  'House of the Dragon', 'How to Train Your Dragon', 'Jurassic World',
-  'Kung Fu Panda 4', 'Love Island', 'Minecraft Movie', 'Mission: Impossible',
-  'Oppenheimer', 'Squid Game', 'The Bear', 'The Last of Us', 'Wednesday',
-  'Cobra Kai', 'Stranger Things', 'Succession', 'The Crown', 'Peaky Blinders', 'Breaking Bad'
-];
+// Movie/Content Carousel — auto-scrolling dual-row marquee
+// Titles and optional poster URLs are managed via config/carousel.ts
+import { CAROUSEL_ITEMS } from '../../config/carousel';
 
 // Generate a consistent hue from title string (for placeholder bg)
 function titleHue(title: string): number {
@@ -16,24 +9,73 @@ function titleHue(title: string): number {
   for (let i = 0; i < title.length; i++) hash = title.charCodeAt(i) + ((hash << 5) - hash);
   return Math.abs(hash % 360);
 }
+
+const half = Math.ceil(CAROUSEL_ITEMS.length / 2);
+const row1 = CAROUSEL_ITEMS.slice(0, half);
+const row2 = CAROUSEL_ITEMS.slice(half);
 ---
 
-<section class="py-14 overflow-hidden bg-slate-50 dark:bg-slate-900/30" aria-label="Content catalog preview">
-  <!-- Duplicate items for seamless loop -->
-  <div class="marquee-track flex gap-4 w-max">
-    {[...TITLES, ...TITLES].map((title) => {
-      const hue = titleHue(title);
+<section class="py-16 sm:py-20 overflow-hidden bg-slate-50 dark:bg-slate-900/30" aria-label="Content catalog preview">
+  <div class="text-center mb-10 px-4">
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mb-3">Endless Entertainment</h2>
+    <p class="text-slate-500 dark:text-slate-400 text-base sm:text-lg max-w-xl mx-auto">Movies, series, live sports & more — all in stunning 4K quality</p>
+  </div>
+
+  <!-- Row 1: left to right -->
+  <div class="marquee-track flex gap-4 sm:gap-5 w-max mb-4 sm:mb-5">
+    {[...row1, ...row1].map((item) => {
+      const hue = titleHue(item.title);
       return (
         <div
-          class="w-28 h-40 sm:w-32 sm:h-48 rounded-xl shrink-0 flex items-end p-2 overflow-hidden relative"
-          style={`background: linear-gradient(135deg, hsl(${hue},40%,25%) 0%, hsl(${hue},55%,15%) 100%);`}
+          class="w-36 h-52 sm:w-44 sm:h-64 md:w-48 md:h-72 rounded-2xl shrink-0 flex items-end overflow-hidden relative
+                 shadow-lg hover:shadow-xl hover:scale-[1.03] transition-all duration-300 group"
+          style={!item.posterUrl ? `background: linear-gradient(135deg, hsl(${hue},50%,30%) 0%, hsl(${hue},60%,12%) 100%);` : undefined}
           aria-hidden="true"
         >
-          <span class="text-white text-[9px] font-semibold leading-tight line-clamp-2 z-10 relative">
-            {title}
-          </span>
-          <!-- Gradient overlay at bottom -->
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          {item.posterUrl && (
+            <img
+              src={item.posterUrl}
+              alt={item.title}
+              class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
+            />
+          )}
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+          <div class="relative z-10 p-3 w-full">
+            <span class="text-white text-xs sm:text-sm font-semibold leading-tight line-clamp-2 drop-shadow-md">
+              {item.title}
+            </span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  <!-- Row 2: right to left (reverse direction) -->
+  <div class="marquee-track-reverse flex gap-4 sm:gap-5 w-max">
+    {[...row2, ...row2].map((item) => {
+      const hue = titleHue(item.title);
+      return (
+        <div
+          class="w-36 h-52 sm:w-44 sm:h-64 md:w-48 md:h-72 rounded-2xl shrink-0 flex items-end overflow-hidden relative
+                 shadow-lg hover:shadow-xl hover:scale-[1.03] transition-all duration-300 group"
+          style={!item.posterUrl ? `background: linear-gradient(135deg, hsl(${hue},50%,30%) 0%, hsl(${hue},60%,12%) 100%);` : undefined}
+          aria-hidden="true"
+        >
+          {item.posterUrl && (
+            <img
+              src={item.posterUrl}
+              alt={item.title}
+              class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
+            />
+          )}
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+          <div class="relative z-10 p-3 w-full">
+            <span class="text-white text-xs sm:text-sm font-semibold leading-tight line-clamp-2 drop-shadow-md">
+              {item.title}
+            </span>
+          </div>
         </div>
       );
     })}

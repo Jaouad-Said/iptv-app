@@ -1,0 +1,1235 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import { SITE } from '../../config/site';
+import { SINGLE_PLANS, MULTI_PLANS, PLAN_FEATURES_BASE, PLAN_FEATURES_EXTRA } from '../../config/plans';
+import { WHATSAPP_CONFIG } from '../../config/whatsapp';
+import { RESELLER_TIERS, WHY_RESELL_FEATURES } from '../../config/reseller';
+import { CAROUSEL_ITEMS } from '../../config/carousel';
+import en from '../../i18n/en';
+import fr from '../../i18n/fr';
+import ar from '../../i18n/ar';
+import { getCollection } from 'astro:content';
+
+const blogPosts = await getCollection('blog');
+const serializedPosts = blogPosts.map((p: any) => ({
+  slug: p.slug,
+  body: p.body,
+  ...p.data,
+  pubDate: p.data.pubDate?.toISOString?.() ?? p.data.pubDate,
+  updatedDate: p.data.updatedDate?.toISOString?.() ?? p.data.updatedDate ?? null,
+}));
+
+const adminData = {
+  site: SITE,
+  singlePlans: SINGLE_PLANS,
+  multiPlans: MULTI_PLANS,
+  planFeaturesBase: PLAN_FEATURES_BASE,
+  planFeaturesExtra: PLAN_FEATURES_EXTRA,
+  whatsapp: WHATSAPP_CONFIG,
+  resellerTiers: RESELLER_TIERS,
+  whyResellFeatures: WHY_RESELL_FEATURES,
+  translations: { en, fr, ar },
+  blogPosts: serializedPosts,
+  carouselItems: CAROUSEL_ITEMS,
+};
+
+// SHA-256 hash of "limitless2024" computed at build time
+import { createHash } from 'node:crypto';
+const passwordHash = createHash('sha256').update('limitless2024').digest('hex');
+---
+
+<Base lang="en" title="Admin Panel" description="Site administration panel" noIndex={true}>
+
+<div id="admin-root"></div>
+
+<script id="admin-data" type="application/json" set:html={JSON.stringify(adminData)} />
+<script id="admin-password-hash" type="application/json" set:html={JSON.stringify(passwordHash)} />
+
+<script>
+// ─── Admin Panel SPA ──────────────────────────────────────────────────────────
+(function AdminPanel() {
+
+// ─── DATA ──────────────────────────────────────────────────────────────────────
+const DATA = JSON.parse(document.getElementById('admin-data')!.textContent!);
+const PASS_HASH = JSON.parse(document.getElementById('admin-password-hash')!.textContent!);
+
+// Deep clone helper
+function clone<T>(obj: T): T { return JSON.parse(JSON.stringify(obj)); }
+
+// Mutable state
+let state = {
+  site: clone(DATA.site),
+  singlePlans: clone(DATA.singlePlans),
+  multiPlans: clone(DATA.multiPlans),
+  planFeaturesBase: clone(DATA.planFeaturesBase),
+  planFeaturesExtra: clone(DATA.planFeaturesExtra),
+  whatsapp: clone(DATA.whatsapp),
+  resellerTiers: clone(DATA.resellerTiers),
+  whyResellFeatures: clone(DATA.whyResellFeatures),
+  translations: clone(DATA.translations),
+  blogPosts: clone(DATA.blogPosts),
+  carouselItems: clone(DATA.carouselItems),
+};
+
+// ─── AUTH ──────────────────────────────────────────────────────────────────────
+async function sha256(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function isAuthenticated(): boolean {
+  return sessionStorage.getItem('admin_auth') === 'true';
+}
+
+// ─── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg: string, type: 'success' | 'error' | 'info' = 'success') {
+  const el = document.createElement('div');
+  const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+  el.className = `fixed top-4 right-4 z-[9999] px-5 py-3 rounded-lg text-white text-sm font-medium shadow-xl ${colors[type]} transition-all duration-300 opacity-0 translate-y-[-10px]`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+  setTimeout(() => {
+    el.style.opacity = '0'; el.style.transform = 'translateY(-10px)';
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────────
+function h(tag: string, attrs: Record<string, any> = {}, ...children: (string | Node | null)[]): HTMLElement {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'className') el.className = v;
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) (el as any).value = v;
+    else if (k === 'checked' && el instanceof HTMLInputElement) el.checked = v;
+    else if (k === 'selected' && el instanceof HTMLOptionElement) el.selected = v;
+    else if (k === 'htmlFor') (el as HTMLLabelElement).htmlFor = v;
+    else if (k === 'type') (el as HTMLInputElement).type = v;
+    else el.setAttribute(k, String(v));
+  }
+  for (const c of children) {
+    if (c === null) continue;
+    el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return el;
+}
+
+function getNestedValue(obj: any, path: string): any {
+  return path.split('.').reduce((o, k) => o?.[k], obj);
+}
+
+function setNestedValue(obj: any, path: string, value: any): void {
+  const keys = path.split('.');
+  const last = keys.pop()!;
+  let cur = obj;
+  for (const k of keys) { if (!cur[k]) cur[k] = {}; cur = cur[k]; }
+  cur[last] = value;
+}
+
+// ─── FORM COMPONENTS ──────────────────────────────────────────────────────────
+const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500';
+const textareaCls = inputCls + ' min-h-[80px] resize-y';
+const labelCls = 'block text-sm font-medium text-slate-300 mb-1';
+const btnCls = 'px-4 py-2 bg-[#3B82F6] text-white text-sm font-medium rounded-lg hover:brightness-110 transition-all cursor-pointer';
+const btnDangerCls = 'px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:brightness-110 transition-all cursor-pointer';
+const btnSmCls = 'px-3 py-1.5 bg-[#3B82F6] text-white text-xs font-medium rounded-lg hover:brightness-110 transition-all cursor-pointer';
+const cardCls = 'bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-4';
+
+function field(label: string, inputEl: HTMLElement): HTMLElement {
+  return h('div', { className: 'space-y-1' }, h('label', { className: labelCls }, label), inputEl);
+}
+
+function textInput(value: string, onChange: (v: string) => void, placeholder = ''): HTMLInputElement {
+  const inp = h('input', { type: 'text', className: inputCls, value, placeholder }) as HTMLInputElement;
+  inp.addEventListener('input', () => onChange(inp.value));
+  return inp;
+}
+
+function numberInput(value: number, onChange: (v: number) => void): HTMLInputElement {
+  const inp = h('input', { type: 'number', className: inputCls, value: String(value) }) as HTMLInputElement;
+  inp.addEventListener('input', () => onChange(Number(inp.value)));
+  return inp;
+}
+
+function textareaInput(value: string, onChange: (v: string) => void, rows = 3): HTMLTextAreaElement {
+  const ta = h('textarea', { className: textareaCls, rows: String(rows) }) as HTMLTextAreaElement;
+  ta.value = value;
+  ta.addEventListener('input', () => onChange(ta.value));
+  return ta;
+}
+
+function selectInput(options: {value: string; label: string}[], selected: string, onChange: (v: string) => void): HTMLSelectElement {
+  const sel = h('select', { className: inputCls }) as HTMLSelectElement;
+  for (const opt of options) {
+    const o = h('option', { value: opt.value }, opt.label) as HTMLOptionElement;
+    if (opt.value === selected) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.addEventListener('change', () => onChange(sel.value));
+  return sel;
+}
+
+function toggleSwitch(value: boolean, onChange: (v: boolean) => void): HTMLElement {
+  const wrapper = h('div', { className: 'relative inline-flex items-center cursor-pointer' });
+  const inp = h('input', { type: 'checkbox', className: 'sr-only' }) as HTMLInputElement;
+  inp.checked = value;
+  const dot = h('span', { className: `absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${value ? 'translate-x-6' : ''}` });
+  const track = h('span', { className: `block w-12 h-6 rounded-full transition-colors ${value ? 'bg-blue-500' : 'bg-slate-600'}` });
+  wrapper.append(inp, track, dot);
+  wrapper.addEventListener('click', () => {
+    inp.checked = !inp.checked;
+    const v = inp.checked;
+    dot.className = `absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${v ? 'translate-x-6' : ''}`;
+    track.className = `block w-12 h-6 rounded-full transition-colors ${v ? 'bg-blue-500' : 'bg-slate-600'}`;
+    onChange(v);
+  });
+  return wrapper;
+}
+
+function tabs(labels: string[], activeIdx: number, onSwitch: (i: number) => void): HTMLElement {
+  const bar = h('div', { className: 'flex gap-1 bg-slate-800 rounded-lg p-1 mb-4' });
+  labels.forEach((lbl, i) => {
+    const cls = i === activeIdx
+      ? 'flex-1 px-3 py-2 text-sm font-medium rounded-md bg-[#3B82F6] text-white text-center cursor-pointer'
+      : 'flex-1 px-3 py-2 text-sm font-medium rounded-md text-slate-400 hover:text-white text-center cursor-pointer';
+    bar.appendChild(h('button', { className: cls, onClick: () => onSwitch(i) }, lbl));
+  });
+  return bar;
+}
+
+// ─── SECTIONS ──────────────────────────────────────────────────────────────────
+type SectionKey = 'site' | 'plans' | 'whatsapp' | 'testimonials' | 'faq' | 'carousel' | 'translations' | 'reseller' | 'blog' | 'export';
+
+const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
+  { key: 'site', label: 'Site Settings', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>' },
+  { key: 'plans', label: 'Pricing Plans', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' },
+  { key: 'whatsapp', label: 'Contact', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>' },
+  { key: 'testimonials', label: 'Testimonials', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>' },
+  { key: 'faq', label: 'FAQ', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' },
+  { key: 'carousel', label: 'Movie Carousel', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>' },
+  { key: 'translations', label: 'Translations', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>' },
+  { key: 'reseller', label: 'Reseller', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
+  { key: 'blog', label: 'Blog', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>' },
+  { key: 'export', label: 'Deploy', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>' },
+];
+
+let activeSection: SectionKey = 'site';
+let mobileMenuOpen = false;
+
+// ─── RENDER LOGIN ──────────────────────────────────────────────────────────────
+function renderLogin() {
+  const root = document.getElementById('admin-root')!;
+  root.innerHTML = '';
+
+  const wrapper = h('div', { className: 'min-h-screen bg-slate-950 flex items-center justify-center p-4' });
+  const card = h('div', { className: 'w-full max-w-sm bg-slate-900 rounded-2xl p-8 shadow-2xl border border-slate-800' });
+
+  const title = h('h1', { className: 'text-2xl font-bold text-white text-center mb-2' }, 'Admin Panel');
+  const subtitle = h('p', { className: 'text-slate-400 text-sm text-center mb-6' }, 'Enter your password to continue');
+
+  const passInput = h('input', { type: 'password', className: inputCls + ' mb-4', placeholder: 'Password' }) as HTMLInputElement;
+  const errorMsg = h('p', { className: 'text-red-400 text-sm mb-3 hidden' }, 'Invalid password');
+  const loginBtn = h('button', { className: btnCls + ' w-full' }, 'Sign In');
+
+  async function tryLogin() {
+    const hash = await sha256(passInput.value);
+    if (hash === PASS_HASH) {
+      sessionStorage.setItem('admin_auth', 'true');
+      renderAdmin();
+    } else {
+      errorMsg.classList.remove('hidden');
+      passInput.classList.add('border-red-500');
+    }
+  }
+
+  loginBtn.addEventListener('click', tryLogin);
+  passInput.addEventListener('keydown', (e: Event) => { if ((e as KeyboardEvent).key === 'Enter') tryLogin(); });
+
+  card.append(title, subtitle, passInput, errorMsg, loginBtn);
+  wrapper.appendChild(card);
+  root.appendChild(wrapper);
+  passInput.focus();
+}
+
+// ─── RENDER ADMIN SHELL ────────────────────────────────────────────────────────
+function renderAdmin() {
+  const root = document.getElementById('admin-root')!;
+  root.innerHTML = '';
+  root.className = 'min-h-screen bg-slate-950 text-white';
+
+  // Mobile menu toggle
+  const mobileToggle = h('button', {
+    className: 'lg:hidden fixed top-4 left-4 z-50 p-2 bg-slate-800 rounded-lg border border-slate-700',
+    onClick: () => { mobileMenuOpen = !mobileMenuOpen; updateMobileMenu(); }
+  });
+  mobileToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>';
+
+  // Sidebar
+  const sidebar = h('aside', { id: 'admin-sidebar', className: 'fixed left-0 top-0 bottom-0 w-64 bg-slate-900 border-r border-slate-800 z-40 flex flex-col hidden lg:flex' });
+  const sidebarHeader = h('div', { className: 'p-5 border-b border-slate-800' },
+    h('h2', { className: 'text-lg font-bold text-white' }, 'Admin Panel'),
+    h('p', { className: 'text-xs text-slate-500 mt-1' }, 'Content Management')
+  );
+  const nav = h('nav', { className: 'flex-1 overflow-y-auto p-3 space-y-1' });
+
+  SECTIONS.forEach(sec => {
+    const isActive = sec.key === activeSection;
+    const btn = h('button', {
+      className: `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-[#3B82F6]/10 text-[#3B82F6]' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`,
+      onClick: () => { activeSection = sec.key; mobileMenuOpen = false; renderAdmin(); }
+    });
+    const iconSpan = h('span', {});
+    iconSpan.innerHTML = sec.icon;
+    btn.append(iconSpan, document.createTextNode(sec.label));
+    nav.appendChild(btn);
+  });
+
+  const logoutBtn = h('div', { className: 'p-3 border-t border-slate-800' },
+    h('button', {
+      className: 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors',
+      onClick: () => { sessionStorage.removeItem('admin_auth'); renderLogin(); }
+    }, 'Sign Out')
+  );
+
+  sidebar.append(sidebarHeader, nav, logoutBtn);
+
+  // Main content
+  const main = h('main', { className: 'lg:ml-64 min-h-screen' });
+
+  // Top bar
+  const topBar = h('div', { className: 'sticky top-0 z-30 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800 px-6 py-4 flex items-center justify-between' });
+  const topTitle = h('h1', { className: 'text-xl font-bold pl-10 lg:pl-0' }, SECTIONS.find(s => s.key === activeSection)!.label);
+  const downloadAllBtn = h('button', {
+    className: 'flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer shadow-lg shadow-green-600/20',
+    onClick: () => saveAllConfigs()
+  });
+  downloadAllBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save All';
+  topBar.append(topTitle, downloadAllBtn);
+
+  // Content area
+  const content = h('div', { className: 'p-6' });
+  renderSection(content, activeSection);
+
+  main.append(topBar, content);
+  root.append(mobileToggle, sidebar, main);
+
+  function updateMobileMenu() {
+    sidebar.className = `fixed left-0 top-0 bottom-0 w-64 bg-slate-900 border-r border-slate-800 z-40 flex flex-col transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`;
+  }
+  updateMobileMenu();
+}
+
+// ─── SECTION ROUTER ────────────────────────────────────────────────────────────
+function renderSection(container: HTMLElement, key: SectionKey) {
+  const renderers: Record<SectionKey, () => HTMLElement> = {
+    site: renderSiteSettings,
+    plans: renderPlans,
+    whatsapp: renderWhatsApp,
+    testimonials: renderTestimonials,
+    faq: renderFAQ,
+    carousel: renderCarousel,
+    translations: renderTranslations,
+    reseller: renderReseller,
+    blog: renderBlog,
+    export: renderExport,
+  };
+  container.appendChild(renderers[key]());
+}
+
+// ─── 1. SITE SETTINGS ─────────────────────────────────────────────────────────
+function renderSiteSettings(): HTMLElement {
+  const s = state.site;
+  const wrap = h('div', { className: 'max-w-2xl space-y-6' });
+  const card = h('div', { className: cardCls });
+
+  const fields: [string, string, 'text' | 'number', string][] = [
+    ['Name', 'name', 'text', s.name],
+    ['Tagline', 'tagline', 'text', s.tagline],
+    ['Domain', 'domain', 'text', s.domain],
+    ['URL', 'url', 'text', s.url],
+    ['Email', 'email', 'text', s.email],
+    ['Founded Year', 'foundedYear', 'number', String(s.foundedYear)],
+    ['Support Hours Open', 'supportHours.open', 'number', String(s.supportHours.open)],
+    ['Support Hours Close', 'supportHours.close', 'number', String(s.supportHours.close)],
+    ['Currency', 'currency', 'text', s.currency],
+    ['Currency Symbol', 'currencySymbol', 'text', s.currencySymbol],
+    ['Telegram URL', 'socialLinks.telegram', 'text', s.socialLinks.telegram],
+    ['GA4 ID', 'ga4Id', 'text', s.ga4Id],
+  ];
+
+  const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' });
+  fields.forEach(([label, path, type, val]) => {
+    if (type === 'number') {
+      grid.appendChild(field(label, numberInput(Number(val), v => setNestedValue(state.site, path, v))));
+    } else {
+      grid.appendChild(field(label, textInput(val, v => setNestedValue(state.site, path, v))));
+    }
+  });
+
+  const saveBtn = h('button', { className: 'flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer', onClick: () => {
+    saveConfig('site.json', state.site);
+  }});
+  saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save Site Settings';
+
+  card.append(grid, h('div', { className: 'flex gap-2 pt-2' }, saveBtn));
+  wrap.appendChild(card);
+  return wrap;
+}
+
+// ─── 2. PRICING PLANS ─────────────────────────────────────────────────────────
+function renderPlans(): HTMLElement {
+  let tab = 0;
+  const wrap = h('div', { className: 'space-y-6' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+    wrap.appendChild(tabs(['Single Plans', 'Multi Plans'], tab, (i) => { tab = i; rebuild(); }));
+
+    const plans = tab === 0 ? state.singlePlans : state.multiPlans;
+    const planType = tab === 0 ? 'single' : 'multi';
+
+    plans.forEach((plan: any, idx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        plans.splice(idx, 1);
+        rebuild();
+        toast('Plan removed');
+      }}, 'Remove');
+
+      const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' });
+      grid.append(
+        field('ID', textInput(plan.id, v => plan.id = v)),
+        field('Duration Label', textInput(plan.durationLabel, v => plan.durationLabel = v)),
+        field('Duration Months', numberInput(plan.durationMonths, v => plan.durationMonths = v)),
+        field('Price (EUR)', numberInput(plan.priceEUR, v => plan.priceEUR = v)),
+        field('Original Price (EUR)', numberInput(plan.originalPriceEUR || 0, v => plan.originalPriceEUR = v || undefined)),
+      );
+
+      if (planType === 'multi') {
+        grid.appendChild(field('Devices Count', numberInput(plan.devicesCount || 1, v => plan.devicesCount = v)));
+      }
+
+      grid.appendChild(field('Badge Text', textInput(plan.badge || '', v => plan.badge = v || undefined)));
+      grid.appendChild(field('WA Message Key', selectInput(
+        ['pricing', 'trial', 'default', 'reseller', 'affiliate', 'extend'].map(k => ({ value: k, label: k })),
+        plan.waMessageKey,
+        v => plan.waMessageKey = v
+      )));
+
+      const toggleWrap = h('div', { className: 'flex items-center gap-3' });
+      toggleWrap.append(h('span', { className: 'text-sm text-slate-300' }, 'Best Value'), toggleSwitch(!!plan.isBestValue, v => plan.isBestValue = v || undefined));
+      grid.appendChild(h('div', {}, toggleWrap));
+
+      card.append(removeBtn, h('h3', { className: 'text-lg font-semibold text-white mb-3' }, plan.id), grid);
+      wrap.appendChild(card);
+    });
+
+    const addBtn = h('button', { className: btnCls, onClick: () => {
+      const newPlan: any = {
+        id: `${planType}-new-${Date.now()}`,
+        type: planType,
+        durationLabel: '1 Month',
+        durationMonths: 1,
+        priceEUR: 0,
+        waMessageKey: 'pricing',
+      };
+      if (planType === 'multi') newPlan.devicesCount = 2;
+      plans.push(newPlan);
+      rebuild();
+      toast('Plan added');
+    }}, '+ Add Plan');
+
+    const saveBtn = h('button', { className: 'flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer', onClick: () => saveConfig('plans.json', { singlePlans: state.singlePlans, multiPlans: state.multiPlans, featuresBase: state.planFeaturesBase, featuresExtra: state.planFeaturesExtra }) });
+    saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save Plans';
+    wrap.appendChild(h('div', { className: 'flex gap-2' }, addBtn, saveBtn));
+
+    // Features section
+    const featCard = h('div', { className: cardCls + ' mt-6' });
+    featCard.appendChild(h('h3', { className: 'text-lg font-semibold text-white mb-3' }, 'Plan Features (Base)'));
+    state.planFeaturesBase.forEach((feat: string, idx: number) => {
+      const row = h('div', { className: 'flex gap-2 mb-2 items-center' });
+      row.append(
+        textInput(feat, v => state.planFeaturesBase[idx] = v),
+        h('button', { className: btnDangerCls, onClick: () => { state.planFeaturesBase.splice(idx, 1); rebuild(); }}, 'X')
+      );
+      featCard.appendChild(row);
+    });
+    featCard.appendChild(h('button', { className: btnSmCls, onClick: () => { state.planFeaturesBase.push('plans.features.new'); rebuild(); }}, '+ Add Feature'));
+
+    const featCard2 = h('div', { className: cardCls + ' mt-4' });
+    featCard2.appendChild(h('h3', { className: 'text-lg font-semibold text-white mb-3' }, 'Plan Features (Extra)'));
+    state.planFeaturesExtra.forEach((feat: string, idx: number) => {
+      const row = h('div', { className: 'flex gap-2 mb-2 items-center' });
+      row.append(
+        textInput(feat, v => state.planFeaturesExtra[idx] = v),
+        h('button', { className: btnDangerCls, onClick: () => { state.planFeaturesExtra.splice(idx, 1); rebuild(); }}, 'X')
+      );
+      featCard2.appendChild(row);
+    });
+    featCard2.appendChild(h('button', { className: btnSmCls, onClick: () => { state.planFeaturesExtra.push('plans.features.new'); rebuild(); }}, '+ Add Feature'));
+
+    wrap.append(featCard, featCard2);
+  }
+  rebuild();
+  return wrap;
+}
+
+// ─── 3. WHATSAPP ──────────────────────────────────────────────────────────────
+function renderWhatsApp(): HTMLElement {
+  const wa = state.whatsapp;
+  const wrap = h('div', { className: 'max-w-2xl space-y-6' });
+  const card = h('div', { className: cardCls });
+
+  card.appendChild(field('Phone Number (international, no + or spaces)', textInput(wa.number, v => wa.number = v)));
+  card.appendChild(field('Contact Email', textInput(state.site.email, v => state.site.email = v)));
+
+  const msgsTitle = h('h3', { className: 'text-lg font-semibold text-white mt-4 mb-3' }, 'Message Templates');
+  card.appendChild(msgsTitle);
+
+  const msgKeys = Object.keys(wa.messages) as string[];
+  msgKeys.forEach(key => {
+    card.appendChild(field(
+      key.charAt(0).toUpperCase() + key.slice(1),
+      textareaInput(wa.messages[key], v => wa.messages[key] = v, 2)
+    ));
+  });
+
+  const saveBtn = h('button', { className: 'flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer', onClick: () => {
+    saveConfig('whatsapp.json', state.whatsapp);
+    saveConfig('site.json', state.site);
+  }});
+  saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save Contact Settings';
+  card.append(h('div', { className: 'flex gap-2 pt-2' }, saveBtn));
+  wrap.appendChild(card);
+  return wrap;
+}
+
+// ─── 4. TESTIMONIALS ──────────────────────────────────────────────────────────
+function renderTestimonials(): HTMLElement {
+  const langs: ('en' | 'fr' | 'ar')[] = ['en', 'fr', 'ar'];
+  let langIdx = 0;
+  const wrap = h('div', { className: 'space-y-6' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+    wrap.appendChild(tabs(['EN', 'FR', 'AR'], langIdx, i => { langIdx = i; rebuild(); }));
+
+    const lang = langs[langIdx];
+    const t = state.translations[lang].testimonials;
+
+    const headerCard = h('div', { className: cardCls });
+    headerCard.append(
+      field('Section Title', textInput(t.title, v => t.title = v)),
+      field('Section Subtitle', textInput(t.subtitle, v => t.subtitle = v))
+    );
+    wrap.appendChild(headerCard);
+
+    t.reviews.forEach((rev: any, idx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        t.reviews.splice(idx, 1); rebuild(); toast('Review removed');
+      }}, 'Remove');
+
+      const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' });
+      grid.append(
+        field('Quote', textareaInput(rev.quote, v => rev.quote = v, 3)),
+        h('div', { className: 'space-y-4' },
+          field('Author', textInput(rev.author, v => rev.author = v)),
+          field('Flag (emoji)', textInput(rev.flag, v => rev.flag = v)),
+          field('Country', textInput(rev.country, v => rev.country = v)),
+          field('Stars (1-5)', numberInput(rev.stars, v => rev.stars = Math.min(5, Math.max(1, v))))
+        )
+      );
+      card.append(removeBtn, h('h4', { className: 'text-sm font-semibold text-slate-300 mb-2' }, `Review #${idx + 1}`), grid);
+      wrap.appendChild(card);
+    });
+
+    wrap.appendChild(h('button', { className: btnCls, onClick: () => {
+      t.reviews.push({ quote: '', author: '', flag: '', country: '', stars: 5 });
+      rebuild(); toast('Review added');
+    }}, '+ Add Review'));
+  }
+  rebuild();
+  return wrap;
+}
+
+// ─── 5. FAQ ────────────────────────────────────────────────────────────────────
+function renderFAQ(): HTMLElement {
+  const langs: ('en' | 'fr' | 'ar')[] = ['en', 'fr', 'ar'];
+  let langIdx = 0;
+  const wrap = h('div', { className: 'space-y-6' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+    wrap.appendChild(tabs(['EN', 'FR', 'AR'], langIdx, i => { langIdx = i; rebuild(); }));
+
+    const lang = langs[langIdx];
+    const faq = state.translations[lang].faq;
+
+    const headerCard = h('div', { className: cardCls });
+    headerCard.appendChild(field('Section Title', textInput(faq.title, v => faq.title = v)));
+    wrap.appendChild(headerCard);
+
+    faq.items.forEach((item: any, idx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        faq.items.splice(idx, 1); rebuild(); toast('FAQ item removed');
+      }}, 'Remove');
+      card.append(
+        removeBtn,
+        h('h4', { className: 'text-sm font-semibold text-slate-300 mb-2' }, `FAQ #${idx + 1}`),
+        field('Question', textInput(item.q, v => item.q = v)),
+        field('Answer', textareaInput(item.a, v => item.a = v, 3))
+      );
+      wrap.appendChild(card);
+    });
+
+    wrap.appendChild(h('button', { className: btnCls, onClick: () => {
+      faq.items.push({ q: '', a: '' });
+      rebuild(); toast('FAQ item added');
+    }}, '+ Add FAQ Item'));
+  }
+  rebuild();
+  return wrap;
+}
+
+// ─── 5b. MOVIE CAROUSEL ─────────────────────────────────────────────────────
+function renderCarousel(): HTMLElement {
+  const wrap = h('div', { className: 'space-y-6' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+
+    wrap.appendChild(h('p', { className: 'text-sm text-slate-400 mb-4' }, 'Manage the movie & series titles shown in the scrolling carousel. Upload poster images or paste an external URL.'));
+
+    state.carouselItems.forEach((item: any, idx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        state.carouselItems.splice(idx, 1); rebuild(); toast('Item removed');
+      }}, 'Remove');
+
+      const leftCol = h('div', { className: 'space-y-3' });
+      leftCol.append(
+        field('Title', textInput(item.title, v => item.title = v)),
+        field('Poster URL', textInput(item.posterUrl || '', v => { item.posterUrl = v || undefined; }, '/uploads/carousel/... or https://...'))
+      );
+
+      // Image upload
+      const uploadWrap = h('div', { className: 'space-y-2' });
+      const fileInput = h('input', { type: 'file', className: 'block w-full text-sm text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:brightness-110 file:cursor-pointer', accept: 'image/*' }) as HTMLInputElement;
+      fileInput.addEventListener('change', async () => {
+        const f = fileInput.files?.[0];
+        if (!f) return;
+        const path = await uploadImage(f);
+        if (path) {
+          item.posterUrl = path;
+          rebuild();
+        }
+      });
+      uploadWrap.append(h('label', { className: labelCls }, 'Upload Poster'), fileInput);
+      leftCol.appendChild(uploadWrap);
+
+      // Preview
+      const rightCol = h('div', { className: 'flex items-center justify-center' });
+      if (item.posterUrl) {
+        const img = h('img', { src: item.posterUrl, className: 'w-24 h-36 object-cover rounded-lg border border-slate-700' }) as HTMLImageElement;
+        img.alt = item.title;
+        rightCol.appendChild(img);
+      } else {
+        rightCol.appendChild(h('div', { className: 'w-24 h-36 rounded-lg bg-slate-700 flex items-center justify-center text-slate-500 text-xs' }, 'No poster'));
+      }
+
+      const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4' });
+      grid.append(leftCol, rightCol);
+      card.append(removeBtn, h('h4', { className: 'text-sm font-semibold text-slate-300 mb-2' }, `#${idx + 1} — ${item.title}`), grid);
+      wrap.appendChild(card);
+    });
+
+    const addBtn = h('button', { className: btnCls, onClick: () => {
+      state.carouselItems.push({ title: 'New Title' });
+      rebuild(); toast('Item added');
+    }}, '+ Add Item');
+
+    const saveBtn = h('button', { className: btnCls + ' ml-2 bg-green-600', onClick: () => saveConfig('carousel.json', state.carouselItems) }, 'Save Carousel');
+    wrap.appendChild(h('div', { className: 'flex gap-2' }, addBtn, saveBtn));
+  }
+  rebuild();
+  return wrap;
+}
+
+// ─── 6. TRANSLATIONS ──────────────────────────────────────────────────────────
+function renderTranslations(): HTMLElement {
+  const langs: ('en' | 'fr' | 'ar')[] = ['en', 'fr', 'ar'];
+  let langIdx = 0;
+  const collapsed: Record<string, boolean> = {};
+  const wrap = h('div', { className: 'space-y-4' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+    wrap.appendChild(tabs(['EN', 'FR', 'AR'], langIdx, i => { langIdx = i; rebuild(); }));
+
+    const lang = langs[langIdx];
+    const t = state.translations[lang];
+
+    const dlBtn = h('button', { className: btnCls + ' mb-4 bg-slate-700', onClick: () => downloadFile(`${lang}.ts`, generateTranslationTs(lang)) }, `Download ${lang}.ts`);
+    wrap.appendChild(dlBtn);
+
+    const sections = Object.keys(t) as string[];
+    sections.forEach(section => {
+      const sectionData = (t as any)[section];
+      const isOpen = !collapsed[`${lang}.${section}`];
+
+      const header = h('button', {
+        className: 'w-full flex items-center justify-between px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 text-left hover:bg-slate-750 transition-colors',
+        onClick: () => { collapsed[`${lang}.${section}`] = isOpen; rebuild(); }
+      });
+      const arrow = h('span', { className: `text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}` });
+      arrow.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>';
+      header.append(h('span', { className: 'text-sm font-semibold text-white' }, section), arrow);
+      wrap.appendChild(header);
+
+      if (isOpen) {
+        const body = h('div', { className: 'bg-slate-800/30 border border-slate-700 border-t-0 rounded-b-lg p-4 mb-2 space-y-3' });
+        renderTranslationFields(body, sectionData, `translations.${lang}.${section}`, lang, section);
+        wrap.appendChild(body);
+      }
+    });
+  }
+
+  function renderTranslationFields(container: HTMLElement, data: any, basePath: string, lang: string, section: string) {
+    if (data === null || data === undefined) return;
+
+    if (typeof data === 'string') {
+      container.appendChild(field(basePath.split('.').pop()!, textInput(data, v => {
+        setNestedValue(state, basePath, v);
+      })));
+      return;
+    }
+
+    if (typeof data === 'number') {
+      container.appendChild(field(basePath.split('.').pop()!, numberInput(data, v => {
+        setNestedValue(state, basePath, v);
+      })));
+      return;
+    }
+
+    if (Array.isArray(data)) {
+      const arrLabel = basePath.split('.').pop()!;
+      container.appendChild(h('h4', { className: 'text-sm font-semibold text-slate-300 mt-2' }, arrLabel + ' (array)'));
+
+      data.forEach((item: any, idx: number) => {
+        const itemPath = `${basePath}.${idx}`;
+        const row = h('div', { className: 'ml-4 border-l-2 border-slate-700 pl-4 mb-3 relative' });
+
+        const removeBtn = h('button', { className: btnDangerCls + ' absolute top-0 right-0', onClick: () => {
+          data.splice(idx, 1);
+          rebuild();
+          toast('Item removed');
+        }}, 'X');
+        row.appendChild(removeBtn);
+
+        if (typeof item === 'string') {
+          row.appendChild(textInput(item, v => { data[idx] = v; }));
+        } else if (typeof item === 'object' && item !== null) {
+          Object.keys(item).forEach(key => {
+            const val = item[key];
+            const keyPath = `${itemPath}.${key}`;
+            if (typeof val === 'string') {
+              row.appendChild(field(key, textInput(val, v => { item[key] = v; })));
+            } else if (typeof val === 'number') {
+              row.appendChild(field(key, numberInput(val, v => { item[key] = v; })));
+            } else if (val === null) {
+              row.appendChild(field(key + ' (null or string)', textInput('', v => { item[key] = v || null; })));
+            }
+          });
+        }
+        container.appendChild(row);
+      });
+
+      // Add button
+      const addBtn = h('button', { className: btnSmCls + ' ml-4 mt-1', onClick: () => {
+        if (data.length > 0) {
+          const template = clone(data[0]);
+          if (typeof template === 'string') {
+            data.push('');
+          } else if (typeof template === 'object' && template !== null) {
+            // Clear all string values
+            for (const key of Object.keys(template)) {
+              if (typeof template[key] === 'string') template[key] = '';
+              else if (typeof template[key] === 'number') template[key] = 0;
+            }
+            data.push(template);
+          }
+        } else {
+          data.push('');
+        }
+        rebuild();
+        toast('Item added');
+      }}, '+ Add Item');
+      container.appendChild(addBtn);
+      return;
+    }
+
+    if (typeof data === 'object') {
+      Object.keys(data).forEach(key => {
+        const val = data[key];
+        const keyPath = `${basePath}.${key}`;
+
+        if (typeof val === 'string') {
+          container.appendChild(field(key, textInput(val, v => { data[key] = v; })));
+        } else if (typeof val === 'number') {
+          container.appendChild(field(key, numberInput(val, v => { data[key] = v; })));
+        } else if (val === null) {
+          container.appendChild(field(key + ' (null or string)', textInput('', v => { data[key] = v || null; })));
+        } else if (Array.isArray(val) || typeof val === 'object') {
+          const sub = h('div', { className: 'mt-3 mb-2' });
+          renderTranslationFields(sub, val, keyPath, lang, section);
+          container.appendChild(sub);
+        }
+      });
+    }
+  }
+
+  rebuild();
+  return wrap;
+}
+
+// ─── 7. RESELLER ──────────────────────────────────────────────────────────────
+function renderReseller(): HTMLElement {
+  const wrap = h('div', { className: 'space-y-6' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+
+    // Tiers
+    wrap.appendChild(h('h2', { className: 'text-lg font-bold text-white' }, 'Reseller Tiers'));
+
+    state.resellerTiers.forEach((tier: any, tIdx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        state.resellerTiers.splice(tIdx, 1); rebuild(); toast('Tier removed');
+      }}, 'Remove Tier');
+
+      const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-4' });
+      grid.append(
+        field('Tier Name', textInput(tier.tier, v => tier.tier = v)),
+        field('Color', h('input', { type: 'color', className: 'w-full h-10 rounded cursor-pointer bg-transparent border border-slate-700', value: tier.color, onInput: (e: Event) => tier.color = (e.target as HTMLInputElement).value }) as HTMLInputElement),
+        field('Dark BG Classes', textInput(tier.darkBg, v => tier.darkBg = v)),
+      );
+      card.append(removeBtn, h('h3', { className: 'text-lg font-semibold text-white mb-3' }, `Tier: ${tier.tier}`), grid);
+
+      // Packages
+      card.appendChild(h('h4', { className: 'text-sm font-semibold text-slate-300 mb-2' }, 'Packages'));
+      tier.packages.forEach((pkg: any, pIdx: number) => {
+        const pkgRow = h('div', { className: 'bg-slate-900/50 rounded-lg p-3 mb-2 relative' });
+        const removePkgBtn = h('button', { className: btnDangerCls + ' absolute top-2 right-2', onClick: () => {
+          tier.packages.splice(pIdx, 1); rebuild(); toast('Package removed');
+        }}, 'X');
+
+        const pkgGrid = h('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-3' });
+        pkgGrid.append(
+          field('Name', textInput(pkg.name, v => pkg.name = v)),
+          field('Credits', numberInput(pkg.credits, v => pkg.credits = v)),
+          field('Price', numberInput(pkg.price, v => pkg.price = v)),
+          h('div', { className: 'flex items-end gap-2 pb-1' },
+            h('span', { className: 'text-sm text-slate-300' }, 'Best Seller'),
+            toggleSwitch(!!pkg.bestSeller, v => { pkg.bestSeller = v || undefined; })
+          ),
+        );
+        pkgRow.append(removePkgBtn, pkgGrid);
+        card.appendChild(pkgRow);
+      });
+
+      card.appendChild(h('button', { className: btnSmCls + ' mt-2', onClick: () => {
+        tier.packages.push({ name: 'New', credits: 5, price: 100 });
+        rebuild(); toast('Package added');
+      }}, '+ Add Package'));
+
+      wrap.appendChild(card);
+    });
+
+    wrap.appendChild(h('button', { className: btnCls, onClick: () => {
+      state.resellerTiers.push({ tier: 'new', color: '#FFFFFF', darkBg: 'from-slate-950 to-slate-950', packages: [] });
+      rebuild(); toast('Tier added');
+    }}, '+ Add Tier'));
+
+    // WHY RESELL FEATURES
+    wrap.appendChild(h('h2', { className: 'text-lg font-bold text-white mt-8' }, 'Why Resell Features'));
+    state.whyResellFeatures.forEach((feat: any, idx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        state.whyResellFeatures.splice(idx, 1); rebuild(); toast('Feature removed');
+      }}, 'Remove');
+      const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' });
+      grid.append(
+        field('Icon (emoji)', textInput(feat.icon, v => feat.icon = v)),
+        field('Title', textInput(feat.title, v => feat.title = v)),
+        field('Description', textInput(feat.desc, v => feat.desc = v)),
+      );
+      card.append(removeBtn, grid);
+      wrap.appendChild(card);
+    });
+
+    const addFeatBtn = h('button', { className: btnCls, onClick: () => {
+      state.whyResellFeatures.push({ icon: '', title: '', desc: '' });
+      rebuild(); toast('Feature added');
+    }}, '+ Add Feature');
+
+    const saveBtn = h('button', { className: 'flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer', onClick: () => saveConfig('reseller.json', { tiers: state.resellerTiers, whyResellFeatures: state.whyResellFeatures }) });
+    saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save Reseller';
+    wrap.appendChild(h('div', { className: 'flex gap-2' }, addFeatBtn, saveBtn));
+  }
+  rebuild();
+  return wrap;
+}
+
+// ─── 8. BLOG ──────────────────────────────────────────────────────────────────
+function renderBlog(): HTMLElement {
+  const wrap = h('div', { className: 'space-y-6' });
+
+  function rebuild() {
+    wrap.innerHTML = '';
+
+    state.blogPosts.forEach((post: any, idx: number) => {
+      const card = h('div', { className: cardCls + ' relative' });
+      const removeBtn = h('button', { className: btnDangerCls + ' absolute top-3 right-3', onClick: () => {
+        state.blogPosts.splice(idx, 1); rebuild(); toast('Post removed');
+      }}, 'Remove');
+
+      const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' });
+      grid.append(
+        field('Title', textInput(post.title, v => post.title = v)),
+        field('Description', textInput(post.description, v => post.description = v)),
+        field('Author', textInput(post.author, v => post.author = v)),
+        field('Tags (comma-separated)', textInput((post.tags || []).join(', '), v => post.tags = v.split(',').map((t: string) => t.trim()).filter(Boolean))),
+        field('Canonical Slug', textInput(post.canonicalSlug || '', v => post.canonicalSlug = v)),
+        field('Language', selectInput(
+          [{ value: 'en', label: 'English' }, { value: 'fr', label: 'French' }, { value: 'ar', label: 'Arabic' }],
+          post.lang, v => post.lang = v
+        )),
+        field('Publication Date', textInput(post.pubDate ? post.pubDate.split('T')[0] : '', v => post.pubDate = v)),
+      );
+
+      const draftToggle = h('div', { className: 'flex items-center gap-3' },
+        h('span', { className: 'text-sm text-slate-300' }, 'Draft'),
+        toggleSwitch(!!post.draft, v => post.draft = v)
+      );
+      grid.appendChild(h('div', { className: 'flex items-end' }, draftToggle));
+
+      card.append(
+        removeBtn,
+        h('h3', { className: 'text-lg font-semibold text-white mb-3' }, post.title || 'Untitled Post'),
+        grid,
+        field('Body (Markdown)', textareaInput(post.body || '', v => post.body = v, 10))
+      );
+      wrap.appendChild(card);
+    });
+
+    const addBtn = h('button', { className: btnCls, onClick: () => {
+      state.blogPosts.push({
+        slug: `en/new-post-${Date.now()}`,
+        title: 'New Post',
+        description: '',
+        author: 'Admin',
+        tags: [],
+        lang: 'en',
+        draft: true,
+        canonicalSlug: 'new-post',
+        pubDate: new Date().toISOString(),
+        updatedDate: null,
+        body: '## New Post\n\nWrite your content here.',
+      });
+      rebuild(); toast('Blog post added');
+    }}, '+ Add New Post');
+
+    const dlBtn = h('button', { className: btnCls + ' ml-2 bg-slate-700', onClick: () => {
+      state.blogPosts.forEach((post: any) => {
+        const md = generateBlogMd(post);
+        const filename = `${post.lang}/${post.canonicalSlug || 'untitled'}.md`;
+        downloadFile(filename, md);
+      });
+      toast('Blog files downloaded');
+    }}, 'Download All Posts');
+
+    wrap.appendChild(h('div', { className: 'flex gap-2' }, addBtn, dlBtn));
+  }
+  rebuild();
+  return wrap;
+}
+
+// ─── 9. DEPLOY ─────────────────────────────────────────────────────────────────
+function renderExport(): HTMLElement {
+  const wrap = h('div', { className: 'max-w-2xl space-y-6' });
+
+  // Save All card
+  const saveCard = h('div', { className: cardCls });
+  saveCard.appendChild(h('h3', { className: 'text-lg font-semibold text-white mb-2' }, 'Save All Changes'));
+  saveCard.appendChild(h('p', { className: 'text-sm text-slate-400 mb-4' }, 'Save all configuration data to JSON files. Changes take effect after rebuild.'));
+  const saveAllBtn = h('button', { className: 'flex items-center gap-2 px-6 py-3 bg-green-600 text-white text-sm font-semibold rounded-lg hover:brightness-110 transition-all cursor-pointer w-full justify-center shadow-lg shadow-green-600/20', onClick: () => saveAllConfigs() });
+  saveAllBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save All Configurations';
+  saveCard.appendChild(saveAllBtn);
+  wrap.appendChild(saveCard);
+
+  // Download translations (TS files — download only)
+  const dlCard = h('div', { className: cardCls });
+  dlCard.appendChild(h('h3', { className: 'text-lg font-semibold text-white mb-2' }, 'Download Translation Files'));
+  dlCard.appendChild(h('p', { className: 'text-sm text-slate-400 mb-4' }, 'Translation files are TypeScript — download and replace them manually.'));
+  const dlGrid = h('div', { className: 'grid grid-cols-2 gap-3' });
+
+  const downloads: [string, () => string][] = [
+    ['en.ts', () => generateTranslationTs('en')],
+    ['fr.ts', () => generateTranslationTs('fr')],
+    ['ar.ts', () => generateTranslationTs('ar')],
+    ['manifest.json', generateManifestJson],
+  ];
+
+  downloads.forEach(([name, gen]) => {
+    const btn = h('button', { className: 'flex items-center gap-2 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white hover:bg-slate-700 transition-colors cursor-pointer', onClick: () => downloadFile(name, gen()) });
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> ${name}`;
+    dlGrid.appendChild(btn);
+  });
+  dlCard.append(dlGrid);
+  wrap.appendChild(dlCard);
+
+  // Deploy hook
+  const deployCard = h('div', { className: cardCls });
+  deployCard.appendChild(h('h3', { className: 'text-lg font-semibold text-white mb-2' }, 'Deploy'));
+  deployCard.appendChild(h('p', { className: 'text-sm text-slate-400 mb-4' }, 'Trigger a rebuild on Vercel after saving changes.'));
+
+  const hookUrl = localStorage.getItem('admin_deploy_hook') || '';
+  const hookInput = textInput(hookUrl, v => localStorage.setItem('admin_deploy_hook', v), 'https://api.vercel.com/v1/integrations/deploy/...');
+  deployCard.append(field('Vercel Deploy Hook URL', hookInput));
+
+  const triggerBtn = h('button', { className: btnCls + ' mt-3 w-full flex items-center gap-2 justify-center', onClick: async () => {
+    const url = localStorage.getItem('admin_deploy_hook');
+    if (!url) { toast('Set a deploy hook URL first', 'error'); return; }
+    try {
+      const res = await fetch(url, { method: 'POST' });
+      if (res.ok) toast('Rebuild triggered!', 'success');
+      else toast(`Deploy failed: ${res.status}`, 'error');
+    } catch (e) { toast('Deploy request failed', 'error'); }
+  }});
+  triggerBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Trigger Rebuild';
+  deployCard.appendChild(triggerBtn);
+  wrap.appendChild(deployCard);
+
+  return wrap;
+}
+
+// ─── FILE GENERATORS ──────────────────────────────────────────────────────────
+
+function toTsLiteral(val: any, indent = 2): string {
+  const pad = ' '.repeat(indent);
+  const pad2 = ' '.repeat(indent + 2);
+
+  if (val === null) return 'null';
+  if (val === undefined) return 'undefined';
+  if (typeof val === 'string') return JSON.stringify(val);
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+
+  if (Array.isArray(val)) {
+    if (val.length === 0) return '[]';
+    const items = val.map(v => `${pad2}${toTsLiteral(v, indent + 2)},`).join('\n');
+    return `[\n${items}\n${pad}]`;
+  }
+
+  if (typeof val === 'object') {
+    const entries = Object.entries(val);
+    if (entries.length === 0) return '{}';
+    const lines = entries.map(([k, v]) => {
+      const key = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? k : JSON.stringify(k);
+      return `${pad2}${key}: ${toTsLiteral(v, indent + 2)},`;
+    }).join('\n');
+    return `{\n${lines}\n${pad}}`;
+  }
+
+  return String(val);
+}
+
+function generateSiteTs(): string {
+  return `export const SITE = ${toTsLiteral(state.site)} as const;\n`;
+}
+
+function generatePlansTs(): string {
+  let out = `export interface Plan {\n  id: string;\n  type: 'single' | 'multi';\n  /** i18n key for duration label e.g. 'plans.duration.1m' */\n  durationLabel: string;\n  durationMonths: number;\n  priceEUR: number;\n  originalPriceEUR?: number;\n  devicesCount?: number;\n  isBestValue?: boolean;\n  /** Extra badge text shown on card e.g. '+ 2 FREE App activations' */\n  badge?: string;\n  /** WhatsApp message key for the CTA */\n  waMessageKey: 'pricing' | 'trial';\n}\n\n`;
+  out += `export const SINGLE_PLANS: Plan[] = ${toTsLiteral(state.singlePlans)};\n\n`;
+  out += `export const MULTI_PLANS: Plan[] = ${toTsLiteral(state.multiPlans)};\n\n`;
+  out += `/** Features shown on all plan cards (i18n keys) */\nexport const PLAN_FEATURES_BASE = ${toTsLiteral(state.planFeaturesBase)} as const;\n\n`;
+  out += `/** Features inside the expandable "More details" section (i18n keys) */\nexport const PLAN_FEATURES_EXTRA = ${toTsLiteral(state.planFeaturesExtra)} as const;\n`;
+  return out;
+}
+
+function generateWhatsAppTs(): string {
+  let out = `export const WHATSAPP_CONFIG = ${toTsLiteral(state.whatsapp)} as const;\n\n`;
+  out += `export type MessageKey = keyof typeof WHATSAPP_CONFIG.messages;\n\n`;
+  out += `export function getWhatsAppUrl(key: MessageKey = 'default'): string {\n`;
+  out += `  const msg = WHATSAPP_CONFIG.messages[key];\n`;
+  out += `  return \`https://wa.me/\${WHATSAPP_CONFIG.number}?text=\${encodeURIComponent(msg)}\`;\n`;
+  out += `}\n`;
+  return out;
+}
+
+function generateCarouselTs(): string {
+  let out = `export interface CarouselItem {\n  title: string;\n  /** Optional external poster image URL (e.g. TMDB). Falls back to gradient placeholder. */\n  posterUrl?: string;\n}\n\n`;
+  out += `export const CAROUSEL_ITEMS: CarouselItem[] = ${toTsLiteral(state.carouselItems)};\n`;
+  return out;
+}
+
+function generateResellerTs(): string {
+  let out = `export interface ResellerPackage {\n  name: string;\n  credits: number;\n  price: number;\n  bestSeller?: boolean;\n}\n\n`;
+  out += `export interface ResellerTier {\n  tier: string;\n  color: string;\n  darkBg: string;\n  packages: ResellerPackage[];\n}\n\n`;
+  out += `export const RESELLER_TIERS: ResellerTier[] = ${toTsLiteral(state.resellerTiers)};\n\n`;
+  out += `export const WHY_RESELL_FEATURES = ${toTsLiteral(state.whyResellFeatures)};\n`;
+  return out;
+}
+
+function generateTranslationTs(lang: 'en' | 'fr' | 'ar'): string {
+  const data = state.translations[lang];
+
+  if (lang === 'en') {
+    let out = `const en = ${toTsLiteral(data)};\n\n`;
+    out += `export default en;\n\n`;
+    out += `/**\n * Recursively replaces all string literal types with \`string\`,\n * allowing FR/AR translations to use different string values\n * while still matching the same structural type.\n */\n`;
+    out += `type Stringify<T> = T extends string\n  ? string\n  : T extends readonly (infer U)[]\n  ? Stringify<U>[]\n  : T extends (infer U)[]\n  ? Stringify<U>[]\n  : T extends object\n  ? { [K in keyof T]: Stringify<T[K]> }\n  : T;\n\n`;
+    out += `export type Translations = Stringify<typeof en>;\n`;
+    return out;
+  }
+
+  let out = `import type { Translations } from './en';\n\n`;
+  out += `const ${lang}: Translations = ${toTsLiteral(data)};\n\n`;
+  out += `export default ${lang};\n`;
+  return out;
+}
+
+function generateManifestJson(): string {
+  return JSON.stringify({
+    name: `${state.site.name} — ${state.site.tagline}`,
+    short_name: state.site.name,
+    description: `Premium IPTV streaming with 10,000+ channels in 4K quality`,
+    start_url: '/en/',
+    display: 'standalone',
+    theme_color: '#3B82F6',
+    background_color: '#0F172A',
+    icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+  }, null, 2);
+}
+
+function generateBlogMd(post: any): string {
+  const fm: Record<string, any> = {
+    title: post.title,
+    description: post.description,
+    pubDate: post.pubDate ? post.pubDate.split('T')[0] : new Date().toISOString().split('T')[0],
+    author: post.author || 'Admin',
+    tags: post.tags || [],
+    lang: post.lang || 'en',
+    draft: !!post.draft,
+    canonicalSlug: post.canonicalSlug || 'untitled',
+  };
+  if (post.updatedDate) fm.updatedDate = post.updatedDate.split('T')[0];
+
+  let yaml = '---\n';
+  for (const [k, v] of Object.entries(fm)) {
+    if (Array.isArray(v)) {
+      yaml += `${k}: [${v.map((i: string) => `"${i}"`).join(', ')}]\n`;
+    } else if (typeof v === 'string') {
+      yaml += `${k}: ${JSON.stringify(v)}\n`;
+    } else {
+      yaml += `${k}: ${v}\n`;
+    }
+  }
+  yaml += '---\n\n';
+  return yaml + (post.body || '');
+}
+
+// ─── DOWNLOAD & SAVE HELPERS ──────────────────────────────────────────────────
+
+function downloadFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Downloaded: ${filename}`);
+}
+
+async function saveConfig(file: string, data: any): Promise<boolean> {
+  try {
+    const res = await fetch('/api/save-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file, data }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      toast(`Saved ${file}`, 'success');
+      return true;
+    } else {
+      toast(`Error: ${json.error}`, 'error');
+      return false;
+    }
+  } catch (e: any) {
+    toast(`Network error: ${e.message}`, 'error');
+    return false;
+  }
+}
+
+async function uploadImage(file: File): Promise<string | null> {
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const json = await res.json();
+    if (json.ok) {
+      toast('Image uploaded', 'success');
+      return json.path;
+    } else {
+      toast(`Upload error: ${json.error}`, 'error');
+      return null;
+    }
+  } catch (e: any) {
+    toast(`Upload failed: ${e.message}`, 'error');
+    return null;
+  }
+}
+
+async function saveAllConfigs() {
+  const saves = [
+    saveConfig('site.json', state.site),
+    saveConfig('plans.json', {
+      singlePlans: state.singlePlans,
+      multiPlans: state.multiPlans,
+      featuresBase: state.planFeaturesBase,
+      featuresExtra: state.planFeaturesExtra,
+    }),
+    saveConfig('whatsapp.json', state.whatsapp),
+    saveConfig('carousel.json', state.carouselItems),
+    saveConfig('reseller.json', {
+      tiers: state.resellerTiers,
+      whyResellFeatures: state.whyResellFeatures,
+    }),
+  ];
+  const results = await Promise.all(saves);
+  if (results.every(Boolean)) {
+    toast('All configs saved! Rebuild to apply.', 'success');
+  } else {
+    toast('Some saves failed — check errors above', 'error');
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+if (isAuthenticated()) {
+  renderAdmin();
+} else {
+  renderLogin();
+}
+
+})();
+</script>
+
+</Base>
